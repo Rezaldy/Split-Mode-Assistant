@@ -28,16 +28,16 @@ root/                 assembles the plugin, owns splitMode config
 
 **The boundary rule (most important rule in this file):** if code needs the project model, the filesystem, indexes, or the model endpoint → it goes in `backend/`. If code renders or handles input → `frontend/`. Data crosses only via the RPC interfaces in `shared/`. When in doubt, put logic in the backend; the frontend should be as thin as possible.
 
-Module loadability is declared via content-module dependencies:
-- backend descriptor depends on `intellij.platform.backend`, `intellij.platform.kernel.backend`, `intellij.platform.rpc.backend`
-- frontend descriptor depends on `intellij.platform.frontend`
+Module loadability is declared via content-module dependencies (verified against template @ 624df076):
+- backend **XML descriptor** depends on `intellij.platform.backend`, `intellij.platform.kernel.backend` (+ the shared module). `intellij.platform.rpc.backend` is a **Gradle `bundledModule` only** — do not add it to the XML.
+- frontend descriptor depends on `intellij.platform.frontend` (+ the shared module)
 - shared uses the `rpc` Gradle plugin (JetBrains-internal Kotlin compiler plugin, resolved from `https://packages.jetbrains.team/maven/p/ij/intellij-dependencies/`) to generate RPC stubs from `@Rpc` interfaces.
 
 ### RPC surface (shared/)
 
 Keep the surface small. Three interfaces:
 
-- `ChatApi` — `sendMessage(text, attachments)`, plus a `Flow` of message/stream updates (the template already implements this pattern; extend, don't replace).
+- `ChatApi` — `sendMessage(text, attachments)`, plus a `Flow` of message/stream updates (the template already implements this pattern as `ChatRepositoryRpcApi` in shared/; extend it, don't replace it).
 - `ModelsApi` — `listModels(): List<ModelInfo>`, `getSelectedModel()`, `selectModel(name)`.
 - `FileSearchApi` — `search(query: String, limit: Int): List<FileRef>` where `FileRef = (path, presentablePath, fileName)`. Powers the `@` popup.
 

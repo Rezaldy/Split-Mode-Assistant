@@ -7,15 +7,56 @@ Maintained by the code-recon skill.
 
 ## Architecture anchors
 
-*(empty — populate during M0/M1 exploration of the template: where the demo
-responder lives, where RPC impls are registered, where the tool window is
-declared)*
+- **Demo/backend responder** — `@Service(PROJECT)` holding
+  `MutableStateFlow<List<ChatMessage>>`; `simulateAIResponse()` posts a
+  thinking message then a canned reply from
+  `repository/AIResponseGenerator.kt`. This is what M1 replaces.
+  `backend/src/main/kotlin/com/transtrend/ai/assistant/BackendChatRepositoryModel.kt`
+  (verified 2026-08-01)
+- **RPC contract** — single `@Rpc` interface, `getMessagesFlow(projectId):
+  Flow<List<ChatMessageDto>>` + `sendMessage(projectId, text)`; resolves
+  itself via `companion.getInstance()` →
+  `RemoteApiProviderService.resolve(remoteApiDescriptor<...>())`.
+  `shared/src/main/kotlin/com/transtrend/ai/assistant/ChatRepositoryRpcApi.kt`
+  (verified 2026-08-01)
+- **Backend RPC registration** — `BackendRpcApiProvider : RemoteApiProvider`
+  registered via EP `platform.rpc.backend.remoteApiProvider` in
+  `backend/src/main/resources/code-assistant.backend.xml`. New RPC
+  *methods* need nothing extra; new *interfaces* need a `remoteApi{}` line
+  here + descriptor stays. (verified 2026-08-01)
+- **Frontend remote-API acquisition** — NOT in the tool window:
+  `FrontendChatRepositoryModel` (`@Service(PROJECT)`) wraps calls in
+  `fleet.rpc.client.durable { }` and exposes a `StateFlow` via `stateIn`.
+  `frontend/src/main/kotlin/com/transtrend/ai/assistant/chatApp/viewmodel/FrontendChatRepositoryModel.kt`
+  (verified 2026-08-01)
+- **Tool window** — `ModularPluginToolWindowFactory` (frontend), declared in
+  `code-assistant.frontend.xml` with id "Code Assistant"; builds
+  `ChatViewModel(CoroutineScopeHolder.scope, FrontendChatRepositoryModel)`.
+  (verified 2026-08-01)
+- **Content module naming** — module names derive from
+  `rootProject.name` (`code-assistant`) + subproject: descriptor files
+  `code-assistant.{shared,frontend,backend}.xml` must match plugin.xml
+  `<content>` entries. Rename all together or loading breaks. (verified 2026-08-01)
 
 ## Flows
 
-*(empty)*
+- **Send message (end to end)** — frontend `PromptInput` → `ChatViewModel`
+  → `ChatRepositoryApi` (local iface) → `FrontendChatRepositoryModel`
+  → RPC `ChatRepositoryRpcApi.sendMessage(projectId, text)` →
+  `BackendChatRepositoryRpcApi` (resolves `projectId.findProjectOrNull()`)
+  → `BackendChatRepositoryModel`; replies travel back solely as new
+  emissions of `getMessagesFlow`. UI is Swing (template deliberately
+  removed Compose). (verified 2026-08-01)
 
 ## Gotchas
 
-*(empty — build/Gradle traps stay in CLAUDE.md; this section is for code-level
-surprises found while exploring)*
+- **Platform toolchain requires JDK 21** — Gradle 9.4 daemon runs on JDK 25
+  but compilation wants languageVersion=21 and no toolchain download repo is
+  configured; Temurin 21.0.12 installed 2026-08-01 (auto-detected — no
+  config needed). (verified 2026-08-01)
+- **`intellij.platform.rpc.backend`** is a Gradle `bundledModule` in
+  `backend/build.gradle.kts` only — it must NOT appear in the backend XML
+  descriptor. (verified 2026-08-01)
+- **`shared/build.gradle.kts` is intentionally empty** — plugins come from
+  the root `subprojects{}` block; serialization compileOnly artifacts are
+  declared only in frontend. Config cache is ON. (verified 2026-08-01)

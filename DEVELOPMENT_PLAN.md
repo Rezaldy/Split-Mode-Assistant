@@ -19,7 +19,7 @@ seeded codemap); PR-only workflow documented (PR #1). **No plugin code yet.**
 | IntelliJ IDEA | 2025.2.3 ✅ |
 | git / gh | 2.45.1, gh authed as Rezaldy ✅ |
 | Ollama | 0.32.5 serving; `qwen3.5:27b-q4_k_m`, `qwen3.5:4b` pulled ✅ |
-| JDK | 25 on PATH — OK for Gradle 9.4.0 (template wrapper); Temurin 21 is the fallback if the platform toolchain objects (see P0.1) |
+| JDK | 25 (daemon) + Temurin 21.0.12 (platform toolchain; installed 2026-08-01 after toolchain rejected 25) ✅ |
 
 ## Phase P0 — pre-flight (before any plugin code)
 
@@ -164,8 +164,7 @@ the PR description. Regressions in earlier milestones block merge.
 
 - [x] Repo + docs + Claude tooling
 - [x] PR-only workflow (PR #1)
-- [x] P0.1 JDK stance settled (25 first, 21 fallback) ·
-  [x] P0.2 .gitattributes · [ ] P0.3 template import ·
-  [x] P0.4 assumption verification (remote, 2026-08-01; codemap banking at
-  import)
+- [x] P0.1 JDK (Temurin 21 installed — toolchain rejected 25) ·
+  [x] P0.2 .gitattributes · [x] P0.3 template import (@ 624df076) ·
+  [x] P0.4 assumption verification + codemap banked
 - [ ] M0 · [ ] M1 · [ ] M2 · [ ] M3 · [ ] M4 · [ ] M5 · [ ] M6
