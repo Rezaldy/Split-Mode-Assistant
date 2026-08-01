@@ -55,9 +55,10 @@ Every PR runs the gate: `/milestone-done` (build → runIde → **split mode** �
 the PR description. Regressions in earlier milestones block merge.
 
 ### M0 — template runs (`m0-template-import`, continues P0.3)
-- Rename identity: `gradle.properties` (group/name/version), `plugin.xml`
-  (`<id>`, `<name>`, `<vendor>`); confirm only
-  `<depends>com.intellij.modules.platform</depends>`.
+- Rename identity (decided 2026-08-01): plugin id **`code-assistant`**,
+  group **`com.transtrend.ai`** — apply in `gradle.properties`
+  (group/name/version) and `plugin.xml` (`<id>`, `<name>`, `<vendor>`);
+  confirm only `<depends>com.intellij.modules.platform</depends>`.
 - **Exit:** demo chat echoes in monolithic `runIde` AND the split-mode run
   config. Both verified by hand.
 - Risk: first Gradle resolution of the `rpc` plugin (known trap #2) — if the
@@ -67,8 +68,12 @@ the PR description. Regressions in earlier milestones block merge.
 - `OllamaClient` (JDK HttpClient, NDJSON → `Flow<String>`, ≥10s connect
   timeout, **no** request timeout), minimal `ProjectContextCollector` (open
   files only), wired into the template's backend responder in place of the
-  demo reply. Hardcoded model for now (use `qwen3.5:4b` — fast iteration;
-  the 27b model is for quality checks, not dev loops).
+  demo reply. **No hardcoded model names anywhere** (decision 2026-08-01):
+  the backend discovers models from `/api/tags` and uses the first
+  available; `OLLAMA_MODEL` env override wins. For fast dev loops set
+  `OLLAMA_MODEL=qwen3.5:4b` — the 27b model is for quality checks. M2 then
+  adds the user-facing dropdown + persisted selection on top of the same
+  discovery call.
 - Frontend and RPC surface untouched this milestone.
 - **Exit:** tokens stream incrementally in split mode; killing `ollama
   serve` mid-stream produces a distinct error bubble; `/ollama-smoke` is the
@@ -127,18 +132,24 @@ the PR description. Regressions in earlier milestones block merge.
 | Template drifted from CLAUDE.md assumptions | Wasted session flailing | P0.4 verification pass; docs fixed same PR |
 | `rpc` plugin resolution fails | Blocks M0 | Known trap #2; gradle-doctor; keep jetbrains.team repo in settings |
 | Split-mode run config broken on Windows | Can't verify the key property | Surface early in M0, not at M1; if broken, fix before any feature work |
-| 27b model too slow for dev loops | Slow iteration, misdiagnosed "hangs" | Dev on `qwen3.5:4b`; cold-start patience built into OllamaClient (no request timeout) |
+| 27b model too slow for dev loops | Slow iteration, misdiagnosed "hangs" | `OLLAMA_MODEL=qwen3.5:4b` during dev; cold-start patience built into OllamaClient (no request timeout) |
 | CRLF corrupts `gradlew` | Weird failures on Linux hosts later | P0.2 `.gitattributes` before import |
 | M4 scope sprawl | Giant unreviewable PR | Pre-authorized split: backend-first, UI-second |
 
-## Open decisions (user input wanted, none block P0.1–P0.2)
+## Decisions log
 
-1. **Plugin id + vendor** for M0 rename (suggestion:
-   `com.rezaldy.assistant` / vendor "Rezaldy").
-2. **Template README handling** in the import PR: drop it or keep as
+- **2026-08-01 — Plugin identity:** id `code-assistant`, group
+  `com.transtrend.ai`. (Vendor display name for `plugin.xml` assumed
+  "Transtrend" — flag at M0 rename if wrong.)
+- **2026-08-01 — No hardcoded models:** model options always come from the
+  Ollama endpoint (`/api/tags`). M1 auto-picks the first available (env
+  override wins); M2 adds user selection. No model name appears in code.
+- **2026-08-01 — PR-only workflow** (PR #1).
+
+## Open decisions (user input wanted)
+
+1. **Template README handling** in the import PR: drop it or keep as
    `TEMPLATE_README.md`.
-3. **Dev model default**: plan assumes `qwen3.5:4b` for M1's hardcoded
-   model — confirm.
 
 ## Tracker
 

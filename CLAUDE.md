@@ -108,7 +108,7 @@ Sandbox testing needs Ollama reachable from the machine running the *backend* pr
 ## Milestones (in order; each one shippable)
 
 1. **M0 — template runs**: clone, rename plugin id/name, both run modes show the demo chat.
-2. **M1 — streamed Ollama chat**: `OllamaClient` + hardcoded model + minimal context (open files only) wired into the backend responder. Tokens stream into the UI in split mode.
+2. **M1 — streamed Ollama chat**: `OllamaClient` + model discovered from the endpoint (no hardcoded model names anywhere — backend uses the first model from `/api/tags`, `OLLAMA_MODEL` env override wins) + minimal context (open files only) wired into the backend responder. Tokens stream into the UI in split mode.
 3. **M2 — model selection**: `ModelsApi`, dropdown in the tool window header, persisted selection, error state when the source is unreachable.
 4. **M3 — settings**: base URL + defaults in a Settings panel (backend-registered), env overrides.
 5. **M4 — @ mentions**: `FileSearchApi`, completion popup, structured attachments, prioritized context budget.
