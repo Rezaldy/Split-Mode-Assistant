@@ -78,6 +78,16 @@ Test in split mode before declaring any feature done — monolithic mode hides b
 
 Sandbox testing needs Ollama reachable from the machine running the *backend* process: `ollama serve` locally is fine for both run modes at home.
 
+## Workflow: pull requests only
+
+**Nothing lands on `main` directly — every change goes through a GitHub pull request.** This applies to all changes: code, docs, `.claude/` config, build scripts.
+
+- Start every unit of work on a branch cut from up-to-date `main`. Naming: `m<N>-<slug>` for milestone work (e.g. `m1-ollama-client`), `fix/<slug>`, `docs/<slug>`.
+- One coherent change per PR — a milestone, a fix, a doc update. Don't bundle unrelated changes.
+- Open PRs with `gh pr create`. The description states what changed and why, which verification steps ran (build, run modes, `verifyPlugin` where applicable), and the written justification for any new external dependency.
+- PRs are reviewed and merged by the user — never self-merge without explicit instruction.
+- The milestone rule follows: a milestone is "done" when its PR is merged, and milestone N+1 starts from the merged state of N.
+
 ## Conventions
 
 - Kotlin, official code style. Coroutines + `Flow` for anything async; no raw threads.
