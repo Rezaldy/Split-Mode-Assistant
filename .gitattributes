@@ -1,0 +1,15 @@
+# Normalize line endings; protect scripts that break under the wrong EOL.
+* text=auto
+
+# Gradle wrapper and shell scripts must stay LF (executed on Linux hosts).
+gradlew text eol=lf
+*.sh text eol=lf
+
+# Windows batch files must stay CRLF.
+*.bat text eol=crlf
+
+# Binary assets — never touch.
+*.png binary
+*.ico binary
+*.jar binary
+*.zip binary

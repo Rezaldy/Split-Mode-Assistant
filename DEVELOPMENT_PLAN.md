@@ -19,16 +19,17 @@ seeded codemap); PR-only workflow documented (PR #1). **No plugin code yet.**
 | IntelliJ IDEA | 2025.2.3 ✅ |
 | git / gh | 2.45.1, gh authed as Rezaldy ✅ |
 | Ollama | 0.32.5 serving; `qwen3.5:27b-q4_k_m`, `qwen3.5:4b` pulled ✅ |
-| JDK | ⚠️ only 25 on PATH — BOOTSTRAP calls for 17/21 (see P0) |
+| JDK | 25 on PATH — OK for Gradle 9.4.0 (template wrapper); Temurin 21 is the fallback if the platform toolchain objects (see P0.1) |
 
 ## Phase P0 — pre-flight (before any plugin code)
 
 Branch: `chore/p0-preflight` unless noted. Small PRs, one concern each.
 
-1. **JDK 21.** Install Temurin 21 alongside 25 (don't remove 25). Point
-   Gradle at it via `org.gradle.java.home` in the *user* `gradle.properties`
-   or rely on toolchains once the template is in. Exit: `./gradlew -version`
-   (post-import) reports a supported JVM.
+1. **JDK check (revised 2026-08-01).** The template ships Gradle 9.4.0,
+   which runs on JDK 25 — so try the installed JDK 25 at the first build
+   (M0 checkpoint). Only if the IntelliJ Platform toolchain rejects it:
+   `winget install EclipseAdoptium.Temurin.21.JDK` and pin via daemon
+   toolchain config, never via the versioned `gradle.properties`.
 2. **`.gitattributes` before the template lands.** `* text=auto` plus
    explicit `*.sh text eol=lf`, `gradlew text eol=lf`, `*.bat text eol=crlf`.
    The CRLF warnings we already see become real breakage when the Gradle
@@ -40,12 +41,18 @@ Branch: `chore/p0-preflight` unless noted. Small PRs, one concern each.
    README vs ours — keep both, template's becomes `TEMPLATE_README.md` or is
    dropped). One large import PR; reviewed for *completeness*, not
    line-by-line.
-4. **Verify CLAUDE.md's template assumptions and bank them in the codemap**
-   (this is the code-recon skill's first real outing): actual `rpc` plugin
-   version + Kotlin version, the real name/location of the demo responder
-   ("likely `BackendChatRepositoryModel`" is a hypothesis), how RPC impls
-   are registered, where the tool window is declared. Any doc drift → fix
-   CLAUDE.md in the same PR.
+4. **Verify CLAUDE.md's template assumptions and bank them in the codemap.**
+   *Largely done 2026-08-01 by remote exploration of the template (HEAD
+   `624df076`)*: modules confirmed; Kotlin 2.3.20, `rpc` plugin
+   2.3.20-RC2-0.1, IJPGP 2.16.0, platform 2026.1, Gradle 9.4.0; demo
+   responder IS `BackendChatRepositoryModel`; single `@Rpc` interface
+   `ChatRepositoryRpcApi` registered via `BackendRpcApiProvider`
+   (`platform.rpc.backend.remoteApiProvider` EP). Known doc drift to fix in
+   the M0 PR: backend XML descriptor does NOT list
+   `intellij.platform.rpc.backend` (Gradle bundledModule only); root
+   plugin.xml has no `<depends>` (we add the platform one at rename);
+   verifier config is IU-only until M5. Codemap banking happens at import,
+   from the real files.
 
 ## Milestones
 
@@ -128,7 +135,7 @@ the PR description. Regressions in earlier milestones block merge.
 
 | Risk | Impact | Mitigation |
 |---|---|---|
-| JDK 25 breaks Gradle/instrumentation | Blocks M0 | P0.1: JDK 21 preinstalled before first build |
+| JDK 25 rejected by platform toolchain | Blocks M0 | Gradle 9.4 itself is fine on 25; fallback = Temurin 21 via winget + daemon toolchain pin (P0.1) |
 | Template drifted from CLAUDE.md assumptions | Wasted session flailing | P0.4 verification pass; docs fixed same PR |
 | `rpc` plugin resolution fails | Blocks M0 | Known trap #2; gradle-doctor; keep jetbrains.team repo in settings |
 | Split-mode run config broken on Windows | Can't verify the key property | Surface early in M0, not at M1; if broken, fix before any feature work |
@@ -145,16 +152,20 @@ the PR description. Regressions in earlier milestones block merge.
   Ollama endpoint (`/api/tags`). M1 auto-picks the first available (env
   override wins); M2 adds user selection. No model name appears in code.
 - **2026-08-01 — PR-only workflow** (PR #1).
+- **2026-08-01 — Template README dropped at import** (approved in the
+  P0→M1 execution plan): its RPC-flow walkthrough gets banked into
+  `.claude/codemap.md`; a project README comes later.
 
 ## Open decisions (user input wanted)
 
-1. **Template README handling** in the import PR: drop it or keep as
-   `TEMPLATE_README.md`.
+*None currently.*
 
 ## Tracker
 
 - [x] Repo + docs + Claude tooling
 - [x] PR-only workflow (PR #1)
-- [ ] P0.1 JDK 21 · [ ] P0.2 .gitattributes · [ ] P0.3 template import ·
-  [ ] P0.4 assumption verification
+- [x] P0.1 JDK stance settled (25 first, 21 fallback) ·
+  [x] P0.2 .gitattributes · [ ] P0.3 template import ·
+  [x] P0.4 assumption verification (remote, 2026-08-01; codemap banking at
+  import)
 - [ ] M0 · [ ] M1 · [ ] M2 · [ ] M3 · [ ] M4 · [ ] M5 · [ ] M6
