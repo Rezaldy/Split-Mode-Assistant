@@ -1,0 +1,19 @@
+<idea-plugin>
+    <id>code-assistant</id>
+    <name>Code Assistant</name>
+    <vendor>Transtrend</vendor>
+
+    <depends>com.intellij.modules.platform</depends>
+
+    <description><![CDATA[
+        AI chat assistant backed by a user-configured model source (Ollama-compatible API).<br>
+        <em>Natively built for split mode (JetBrains Remote Development): all project access
+        and LLM traffic run on the backend/host; only UI runs on the frontend/client.</em>
+    ]]></description>
+
+    <content>
+        <module name="code-assistant.shared" loading="required"/>
+        <module name="code-assistant.frontend"/>
+        <module name="code-assistant.backend"/>
+    </content>
+</idea-plugin>
