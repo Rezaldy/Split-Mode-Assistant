@@ -1,0 +1,12 @@
+<idea-plugin>
+    <dependencies>
+        <module name="intellij.platform.frontend"/>
+        <module name="code-assistant.shared"/>
+    </dependencies>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <toolWindow factoryClass="com.transtrend.ai.assistant.toolWindow.ModularPluginToolWindowFactory"
+                    id="Code Assistant"
+                    icon="com.transtrend.ai.assistant.ModularPluginIcons.ToolWindow"/>
+    </extensions>
+</idea-plugin>

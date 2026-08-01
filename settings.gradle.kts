@@ -19,7 +19,7 @@ plugins {
     id("org.jetbrains.intellij.platform.settings") version "2.16.0"
 }
 
-rootProject.name = "modular.plugin"
+rootProject.name = "code-assistant"
 
 dependencyResolutionManagement {
     repositories {

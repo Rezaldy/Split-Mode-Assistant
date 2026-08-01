@@ -2,8 +2,8 @@ import org.jetbrains.intellij.platform.gradle.IntelliJPlatformType
 import org.jetbrains.intellij.platform.gradle.TestFrameworkType
 import org.jetbrains.intellij.platform.gradle.tasks.aware.SplitModeAware
 
-group = "org.jetbrains.plugins.template"
-version = "1.0"
+group = "com.transtrend.ai"
+version = "0.1.0"
 
 val intellijPlatformVersion = providers.gradleProperty("intellijPlatformVersion").get()
 
