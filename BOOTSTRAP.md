@@ -49,7 +49,8 @@ Suggested opening prompt once CLAUDE.md is in the repo:
 
 Then per milestone, one session each: M2 (ModelsApi + dropdown), M3 (settings),
 M4 (@ mentions), M5 (verifyPlugin for IDEA/PyCharm/WebStorm), M6 (polish).
-Keep sessions scoped to one milestone; commit after each.
+Keep sessions scoped to one milestone; each milestone lands as its own PR
+(branch `m<N>-<slug>` → `gh pr create` → user reviews and merges).
 
 ## 5. Verification loop (run every milestone)
 
