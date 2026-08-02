@@ -3,6 +3,13 @@ package com.transtrend.ai.assistant
 import kotlinx.serialization.Serializable
 import java.time.LocalDateTime
 
+/** A file the backend will include as model context. Plain data only — never platform objects. */
+@Serializable
+data class ContextFileDto(
+    val path: String,
+    val fileName: String,
+)
+
 @Serializable
 data class ChatMessageDto(
     val id: String,
