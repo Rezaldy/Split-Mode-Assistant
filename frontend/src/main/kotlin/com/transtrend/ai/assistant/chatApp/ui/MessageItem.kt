@@ -21,6 +21,8 @@ class MessageBubble(
 ) : JPanel() {
 
     private val isMyMessage = message.isMyMessage
+    private var contentArea: MessageContent? = null
+    private var currentContent: String = message.content
 
     init {
         setupAppearance()
@@ -30,11 +32,25 @@ class MessageBubble(
 
         when {
             message.isTextMessage() -> {
-                add(MessageContent(message))
+                contentArea = MessageContent(message).also { add(it) }
                 add(Box.createVerticalStrut(JBUI.scale(ChatUIConstants.Spacing.NORMAL)))
                 add(TimeStampLabel(message))
             }
             message.isAIThinkingMessage() -> add(ThinkingIndicator())
+        }
+    }
+
+    /**
+     * The backend streams responses by growing one message's content in place, so a bubble
+     * must be able to re-render its text after construction.
+     */
+    fun updateFrom(updated: ChatMessage) {
+        if (updated.content == currentContent) return
+        currentContent = updated.content
+        contentArea?.let {
+            it.text = updated.content
+            revalidate()
+            repaint()
         }
     }
 

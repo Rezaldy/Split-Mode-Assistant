@@ -50,6 +50,13 @@ Maintained by the code-recon skill.
 
 ## Gotchas
 
+- **ChatList renders by message id** — bubbles are created for new ids and
+  removed for vanished ids; content changes to an EXISTING id must go
+  through `MessageBubble.updateFrom` (added for M1 streaming — the template
+  never updated messages in place). Symptom when broken: streamed reply
+  freezes at its first few tokens.
+  `frontend/.../chatApp/ui/ChatList.kt` `addNewMessages` (verified 2026-08-02)
+
 - **Platform toolchain requires JDK 21** — Gradle 9.4 daemon runs on JDK 25
   but compilation wants languageVersion=21 and no toolchain download repo is
   configured; Temurin 21.0.12 installed 2026-08-01 (auto-detected — no
