@@ -111,7 +111,8 @@ class ChatList : JPanel() {
         val gbc = baseConstraints()
 
         messages.forEachIndexed { index, message ->
-            if (message.id !in messageBubbles) {
+            val existingBubble = messageBubbles[message.id]
+            if (existingBubble == null) {
                 val bubble = MessageBubble(message)
                 messageBubbles[message.id] = bubble
 
@@ -119,6 +120,8 @@ class ChatList : JPanel() {
                 gbc.anchor = if (message.isMyMessage) GridBagConstraints.EAST else GridBagConstraints.WEST
 
                 messagesContainer.add(bubble, gbc)
+            } else {
+                existingBubble.updateFrom(message)
             }
         }
 
