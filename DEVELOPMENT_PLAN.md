@@ -167,4 +167,5 @@ the PR description. Regressions in earlier milestones block merge.
 - [x] P0.1 JDK (Temurin 21 installed — toolchain rejected 25) ·
   [x] P0.2 .gitattributes · [x] P0.3 template import (@ 624df076) ·
   [x] P0.4 assumption verification + codemap banked
-- [ ] M0 · [ ] M1 · [ ] M2 · [ ] M3 · [ ] M4 · [ ] M5 · [ ] M6
+- [x] M0 (PR #5 — both run modes verified 2026-08-01) ·
+  [ ] M1 · [ ] M2 · [ ] M3 · [ ] M4 · [ ] M5 · [ ] M6
