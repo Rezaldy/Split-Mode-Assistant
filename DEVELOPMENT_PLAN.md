@@ -168,4 +168,5 @@ the PR description. Regressions in earlier milestones block merge.
   [x] P0.2 .gitattributes · [x] P0.3 template import (@ 624df076) ·
   [x] P0.4 assumption verification + codemap banked
 - [x] M0 (PR #5 — both run modes verified 2026-08-01) ·
-  [ ] M1 · [ ] M2 · [ ] M3 · [ ] M4 · [ ] M5 · [ ] M6
+  [x] M1 (PR #6 — streaming verified incl. split mode, 2026-08-02) ·
+  [ ] M2 · [ ] M3 · [ ] M4 · [ ] M5 · [ ] M6

@@ -1,14 +1,35 @@
 <idea-plugin>
     <id>code-assistant</id>
-    <name>Code Assistant</name>
+    <name>Split Mode Assistant</name>
     <vendor>Transtrend</vendor>
 
     <depends>com.intellij.modules.platform</depends>
 
     <description><![CDATA[
-        AI chat assistant backed by a user-configured model source (Ollama-compatible API).<br>
-        <em>Natively built for split mode (JetBrains Remote Development): all project access
-        and LLM traffic run on the backend/host; only UI runs on the frontend/client.</em>
+        <p><b>AI chat assistant for JetBrains IDEs, built natively for split mode
+        (JetBrains Remote Development) and powered by your own Ollama model source.</b></p>
+
+        <p>Split Mode Assistant adds an AI chat tool window backed by a local or
+        self-hosted LLM through the Ollama-compatible REST API — no cloud account,
+        no API keys, your code never leaves your infrastructure.</p>
+
+        <ul>
+            <li><b>Ollama integration</b> — point it at any Ollama endpoint
+                (<code>localhost</code> or a remote server); models are discovered
+                automatically from the endpoint, and responses stream token by token.</li>
+            <li><b>True Remote Development support</b> — designed for split mode from
+                day one: project access and all LLM traffic stay on the backend/host,
+                only the UI runs in the JetBrains Client. It works identically in a
+                regular local IDE.</li>
+            <li><b>Project-aware answers</b> — the contents of your open files are
+                provided to the model as context, collected safely on the host.</li>
+            <li><b>Multi-IDE</b> — platform-only APIs: IntelliJ IDEA, PyCharm,
+                WebStorm, and other IntelliJ-based IDEs.</li>
+        </ul>
+
+        <p>Ideal for teams using JetBrains Remote Development / remote dev containers
+        who want an AI coding assistant with a self-hosted model — local LLM, private
+        AI, Ollama, split mode, remote backend.</p>
     ]]></description>
 
     <content>
