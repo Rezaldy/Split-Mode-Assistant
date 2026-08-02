@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.stateIn
 import com.transtrend.ai.assistant.ChatMessage
 import com.transtrend.ai.assistant.ChatRepositoryRpcApi
+import com.transtrend.ai.assistant.ContextFileDto
 import com.transtrend.ai.assistant.toChatMessage
 
 @Service(Level.PROJECT)
@@ -39,4 +40,12 @@ class FrontendChatRepositoryModel(
     override suspend fun sendMessage(messageContent: String) {
         ChatRepositoryRpcApi.getInstance().sendMessage(project.projectId(), messageContent)
     }
+
+    override val contextFilesFlow: StateFlow<List<ContextFileDto>> = flow {
+        durable {
+            ChatRepositoryRpcApi.getInstance().getContextFilesFlow(project.projectId()).collect { valueFromBackend ->
+                emit(valueFromBackend)
+            }
+        }
+    }.stateIn(coroutineScope, initialValue = emptyList(), started = SharingStarted.Lazily)
 }

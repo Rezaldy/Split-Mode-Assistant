@@ -4,9 +4,12 @@ import com.intellij.openapi.Disposable
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import com.transtrend.ai.assistant.ChatMessage
+import com.transtrend.ai.assistant.ContextFileDto
 
 interface ChatViewModelApi : Disposable {
     val chatMessagesFlow: StateFlow<List<ChatMessage>>
+
+    val contextFilesFlow: StateFlow<List<ContextFileDto>>
 
     fun onPromptInputChanged(input: String)
 
@@ -27,6 +30,8 @@ class ChatViewModel(
     private val _chatMessagesFlow = MutableStateFlow(emptyList<ChatMessage>())
 
     override val chatMessagesFlow: StateFlow<List<ChatMessage>> = _chatMessagesFlow.asStateFlow()
+
+    override val contextFilesFlow: StateFlow<List<ContextFileDto>> = repository.contextFilesFlow
 
     private val _promptInputState = MutableStateFlow<MessageInputState>(MessageInputState.Disabled)
     override val promptInputState: StateFlow<MessageInputState> = _promptInputState.asStateFlow()

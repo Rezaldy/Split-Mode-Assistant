@@ -2,6 +2,7 @@ package com.transtrend.ai.assistant.chatApp.viewmodel
 
 import kotlinx.coroutines.flow.StateFlow
 import com.transtrend.ai.assistant.ChatMessage
+import com.transtrend.ai.assistant.ContextFileDto
 
 /**
  * Interface defining the contract for managing chat messages and interactions within a chat system.
@@ -20,4 +21,7 @@ interface ChatRepositoryApi {
      * @param messageContent The content of the message to be sent.
      */
     suspend fun sendMessage(messageContent: String)
+
+    /** Files the backend currently includes as model context (open files on the host). */
+    val contextFilesFlow: StateFlow<List<ContextFileDto>>
 }

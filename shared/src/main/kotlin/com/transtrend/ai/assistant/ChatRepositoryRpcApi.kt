@@ -33,5 +33,11 @@ interface ChatRepositoryRpcApi : RemoteApi<Unit> {
      * @param messageContent The content of the message to be sent.
      */
     suspend fun sendMessage(projectId: ProjectId, messageContent: String)
+
+    /**
+     * Flow of the files the backend currently includes as model context (open files for now).
+     * Emits a new list whenever files are opened or closed on the host.
+     */
+    suspend fun getContextFilesFlow(projectId: ProjectId): Flow<List<ContextFileDto>>
 }
 

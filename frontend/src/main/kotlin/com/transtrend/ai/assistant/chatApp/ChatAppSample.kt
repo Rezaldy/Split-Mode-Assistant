@@ -17,6 +17,7 @@ class ChatAppSample(
 
     private val toolbar: ChatToolbar
     private val chatList: ChatList
+    private val contextFilesBar: ContextFilesBar
     private val promptInput: PromptInput
 
     init {
@@ -24,15 +25,22 @@ class ChatAppSample(
 
         toolbar = ChatToolbar(viewModel)
         chatList = ChatList()
+        contextFilesBar = ContextFilesBar()
         promptInput = PromptInput(
             onInputChanged = { text -> viewModel.onPromptInputChanged(text) },
             onSend = { _ -> viewModel.onSendMessage() },
             onStop = { _ -> viewModel.onAbortSendingMessage() }
         )
 
+        val bottomPanel = JPanel(BorderLayout()).apply {
+            isOpaque = false
+            add(contextFilesBar, BorderLayout.NORTH)
+            add(promptInput, BorderLayout.CENTER)
+        }
+
         add(toolbar, BorderLayout.NORTH)
         add(chatList, BorderLayout.CENTER)
-        add(promptInput, BorderLayout.SOUTH)
+        add(bottomPanel, BorderLayout.SOUTH)
 
         subscribeToViewModelUpdates()
     }
@@ -56,6 +64,14 @@ class ChatAppSample(
         coroutineScope.launch {
             viewModel.promptInputState.collect { state ->
                 promptInput.updateState(state)
+            }
+        }
+
+        coroutineScope.launch {
+            viewModel.contextFilesFlow.collect { files ->
+                withContext(Dispatchers.EDT) {
+                    contextFilesBar.setFiles(files)
+                }
             }
         }
 
