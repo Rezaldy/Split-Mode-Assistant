@@ -2,7 +2,7 @@
 
 ## What this project is
 
-A JetBrains IDE plugin — working name **"Assistant"** — that provides an AI chat tool window backed by a **user-configured model source** (Ollama-compatible HTTP API). It is **natively built for split mode** (JetBrains Remote Development): all project-aware logic and all LLM traffic live on the **backend/host**, and only UI runs on the **frontend/client**. It must also run identically in monolithic (local, non-split) mode.
+A JetBrains IDE plugin — **"Split Mode Assistant"** (plugin id `code-assistant`) — that provides an AI chat tool window backed by a **user-configured model source** (Ollama-compatible HTTP API). It is **natively built for split mode** (JetBrains Remote Development): all project-aware logic and all LLM traffic live on the **backend/host**, and only UI runs on the **frontend/client**. It must also run identically in monolithic (local, non-split) mode.
 
 Core capabilities:
 
