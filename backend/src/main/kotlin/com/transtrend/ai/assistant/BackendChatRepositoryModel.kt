@@ -3,8 +3,9 @@
 package com.transtrend.ai.assistant
 
 import com.transtrend.ai.assistant.context.ProjectContextCollector
+import com.transtrend.ai.assistant.models.BackendModelsService
 import com.transtrend.ai.assistant.ollama.OllamaChatMessage
-import com.transtrend.ai.assistant.ollama.OllamaClient
+import com.transtrend.ai.assistant.ollama.OllamaClientService
 import com.transtrend.ai.assistant.ollama.OllamaException
 import com.transtrend.ai.assistant.repository.ChatMessageFactory
 import com.intellij.openapi.components.Service
@@ -36,7 +37,6 @@ class BackendChatRepositoryModel(private val project: Project) {
         ModularPluginBackendBundle.message("chat.author.assistant"),
         ModularPluginBackendBundle.message("chat.author.user"),
     )
-    private val ollamaClient = OllamaClient.fromEnvironment()
     private val _messages = MutableStateFlow(
         listOf(chatMessageFactory.createAIMessage(ModularPluginBackendBundle.message("chat.greeting")))
     )
@@ -55,14 +55,14 @@ class BackendChatRepositoryModel(private val project: Project) {
                 throw e
             } catch (e: OllamaException) {
                 upsertAssistantMessage(
-                    chatMessageFactory.createAIMessage(
+                    chatMessageFactory.createErrorMessage(
                         ModularPluginBackendBundle.message("chat.error", e.message.orEmpty())
                     )
                 )
             } catch (e: Exception) {
                 thisLogger().warn("Chat generation failed", e)
                 upsertAssistantMessage(
-                    chatMessageFactory.createAIMessage(
+                    chatMessageFactory.createErrorMessage(
                         ModularPluginBackendBundle.message("chat.error", e.message ?: e.javaClass.simpleName)
                     )
                 )
@@ -74,13 +74,13 @@ class BackendChatRepositoryModel(private val project: Project) {
         _messages.value += chatMessageFactory
             .createAIThinkingMessage(ModularPluginBackendBundle.message("chat.thinking"))
 
-        val model = ollamaClient.resolveModel()
+        val model = BackendModelsService.getInstance().resolveChatModel()
         val requestMessages = buildRequestMessages()
 
         val streamedMessage = chatMessageFactory.createAIMessage("")
         val content = StringBuilder()
         var lastFlush = 0L
-        ollamaClient.chatStream(model, requestMessages).collect { token ->
+        OllamaClientService.getInstance().client().chatStream(model, requestMessages).collect { token ->
             content.append(token)
             val now = System.currentTimeMillis()
             if (now - lastFlush >= STREAM_FLUSH_INTERVAL_MS) {

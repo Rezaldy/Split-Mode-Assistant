@@ -76,6 +76,18 @@ object ChatAppColors {
                 Gray._158,
                 Gray._117
             )
+
+        val errorBackground: Color
+            get() = JBColor(
+                Color(253, 236, 234),
+                Color(66, 43, 43)
+            )
+
+        val errorBorder: Color
+            get() = JBColor(
+                Color(239, 154, 154),
+                Color(180, 90, 90)
+            )
     }
 
     object Prompt {

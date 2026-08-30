@@ -57,6 +57,23 @@ class ChatMessageFactory(
     }
 
     /**
+     * Creates a new instance of `ChatMessage` representing an error from the model source,
+     * rendered by the frontend as a visually distinct error bubble.
+     */
+    fun createErrorMessage(
+        content: String,
+        timestamp: LocalDateTime = LocalDateTime.now(),
+    ): ChatMessage {
+        return ChatMessage(
+            content = content,
+            author = aiCompanionName,
+            timestamp = timestamp,
+            isMyMessage = false,
+            type = ChatMessage.ChatMessageType.ERROR
+        )
+    }
+
+    /**
      * Creates a new instance of `ChatMessage` representing a user message.
      *
      * @param content The content of the message.

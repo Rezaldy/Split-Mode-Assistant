@@ -76,6 +76,14 @@ class ChatAppSample(
         }
 
         coroutineScope.launch {
+            viewModel.modelsStateFlow.collect { state ->
+                withContext(Dispatchers.EDT) {
+                    toolbar.updateModels(state)
+                }
+            }
+        }
+
+        coroutineScope.launch {
             viewModel.searchChatMessagesHandler().searchStateFlow.collect { searchState ->
                 withContext(Dispatchers.EDT) {
                     toolbar.updateSearchState(searchState)

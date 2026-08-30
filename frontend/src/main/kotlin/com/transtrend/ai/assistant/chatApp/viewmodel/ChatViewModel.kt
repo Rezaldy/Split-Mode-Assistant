@@ -5,11 +5,16 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import com.transtrend.ai.assistant.ChatMessage
 import com.transtrend.ai.assistant.ContextFileDto
+import com.transtrend.ai.assistant.ModelsStateDto
 
 interface ChatViewModelApi : Disposable {
     val chatMessagesFlow: StateFlow<List<ChatMessage>>
 
     val contextFilesFlow: StateFlow<List<ContextFileDto>>
+
+    val modelsStateFlow: StateFlow<ModelsStateDto>
+
+    fun onModelSelected(name: String)
 
     fun onPromptInputChanged(input: String)
 
@@ -24,7 +29,8 @@ interface ChatViewModelApi : Disposable {
 
 class ChatViewModel(
     private val coroutineScope: CoroutineScope,
-    private val repository: ChatRepositoryApi
+    private val repository: ChatRepositoryApi,
+    private val modelsModel: FrontendModelsModel = FrontendModelsModel.getInstance()
 ) : ChatViewModelApi {
 
     private val _chatMessagesFlow = MutableStateFlow(emptyList<ChatMessage>())
@@ -32,6 +38,14 @@ class ChatViewModel(
     override val chatMessagesFlow: StateFlow<List<ChatMessage>> = _chatMessagesFlow.asStateFlow()
 
     override val contextFilesFlow: StateFlow<List<ContextFileDto>> = repository.contextFilesFlow
+
+    override val modelsStateFlow: StateFlow<ModelsStateDto> = modelsModel.stateFlow
+
+    override fun onModelSelected(name: String) {
+        coroutineScope.launch {
+            modelsModel.select(name)
+        }
+    }
 
     private val _promptInputState = MutableStateFlow<MessageInputState>(MessageInputState.Disabled)
     override val promptInputState: StateFlow<MessageInputState> = _promptInputState.asStateFlow()

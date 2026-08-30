@@ -212,5 +212,7 @@ pipeline, feature dark, unit tests) → **`m7-index-settings-incremental`**
   [x] P0.4 assumption verification + codemap banked
 - [x] M0 (PR #5 — both run modes verified 2026-08-01) ·
   [x] M1 (PR #6 — streaming verified incl. split mode, 2026-08-02) ·
-  [ ] M2 · [ ] M3 · [ ] M4 · [ ] M5 · [ ] M6 · [ ] M7 (indexing/RAG —
+  [x] M2 (model dropdown + persisted selection + error bubble; split-mode
+  manual check pending) ·
+  [ ] M3 · [ ] M4 · [ ] M5 · [ ] M6 · [ ] M7 (indexing/RAG —
   planned, blocked on M3+M4)

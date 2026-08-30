@@ -24,6 +24,14 @@ Maintained by the code-recon skill.
   `backend/src/main/resources/code-assistant.backend.xml`. New RPC
   *methods* need nothing extra; new *interfaces* need a `remoteApi{}` line
   here + descriptor stays. (verified 2026-08-01)
+- **Models + settings (M2)** — `ModelsApi` (app-scoped, no projectId) in
+  shared; backend `BackendModelsService` (@Service APP + scope) owns
+  discovery/selection state, `AssistantSettings` (@Service APP,
+  PersistentStateComponent, `splitModeAssistant.xml`) persists; selection
+  precedence env > stored > first tag lives in `resolveChatModel()`.
+  Clients come from `OllamaClientService` (URL-keyed cache). Frontend:
+  `FrontendModelsModel` (APP) → `ChatViewModel.modelsStateFlow` → combo in
+  `ChatHeader.updateModels`. (verified 2026-08-17)
 - **Frontend remote-API acquisition** — NOT in the tool window:
   `FrontendChatRepositoryModel` (`@Service(PROJECT)`) wraps calls in
   `fleet.rpc.client.durable { }` and exposes a `StateFlow` via `stateIn`.
