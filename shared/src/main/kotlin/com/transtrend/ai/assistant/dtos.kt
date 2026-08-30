@@ -3,6 +3,16 @@ package com.transtrend.ai.assistant
 import kotlinx.serialization.Serializable
 import java.time.LocalDateTime
 
+/** Snapshot of the model source's discovered models and current selection. */
+@Serializable
+data class ModelsStateDto(
+    val models: List<String> = emptyList(),
+    val selectedModel: String? = null,
+    /** True when OLLAMA_MODEL is set — selection is fixed by the environment. */
+    val envOverride: Boolean = false,
+    val error: String? = null,
+)
+
 /** A file the backend will include as model context. Plain data only — never platform objects. */
 @Serializable
 data class ContextFileDto(

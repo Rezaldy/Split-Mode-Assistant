@@ -1,6 +1,7 @@
 package com.transtrend.ai.assistant.chatApp.ui
 
 import com.intellij.util.ui.JBUI
+import com.transtrend.ai.assistant.ModelsStateDto
 import com.transtrend.ai.assistant.ModularPluginFrontendBundle
 import com.transtrend.ai.assistant.chatApp.ui.utils.ChatAppColors
 import com.transtrend.ai.assistant.chatApp.ui.utils.ChatAppIcons
@@ -26,11 +27,15 @@ import javax.swing.event.DocumentListener
 
 class ChatToolbar(private val viewModel: ChatViewModel) : JPanel() {
     private val searchBar: ChatSearchBar
+    private val headerPanel: ChatHeader
 
     init {
         layout = BoxLayout(this, BoxLayout.Y_AXIS)
 
-        val headerPanel = ChatHeader(onToggleSearch = { visible -> toggleSearch(visible) })
+        headerPanel = ChatHeader(
+            onToggleSearch = { visible -> toggleSearch(visible) },
+            onModelSelected = { name -> viewModel.onModelSelected(name) },
+        )
 
         searchBar = ChatSearchBar(
             onSearchQueryChange = { query -> viewModel.searchChatMessagesHandler().onSearchQuery(query) },
@@ -60,6 +65,10 @@ class ChatToolbar(private val viewModel: ChatViewModel) : JPanel() {
 
     fun updateSearchState(searchState: SearchState) {
         searchBar.updateSearchState(searchState)
+    }
+
+    fun updateModels(state: ModelsStateDto) {
+        headerPanel.updateModels(state)
     }
 }
 

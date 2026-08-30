@@ -53,42 +53,16 @@ internal data class OllamaErrorResponse(val error: String? = null)
  */
 class OllamaClient(val baseUrl: String) {
 
-    companion object {
-        private const val DEFAULT_BASE_URL = "http://localhost:11434"
-
-        /** `OLLAMA_BASE_URL` wins over the default (settings UI lands in M3). */
-        fun fromEnvironment(): OllamaClient {
-            val base = System.getenv("OLLAMA_BASE_URL")?.takeIf { it.isNotBlank() } ?: DEFAULT_BASE_URL
-            return OllamaClient(base.trimEnd('/'))
-        }
-    }
-
     private val json = Json { ignoreUnknownKeys = true }
     private val http = HttpClient.newBuilder()
         .connectTimeout(Duration.ofSeconds(10))
         .build()
-
-    @Volatile
-    private var resolvedModel: String? = null
 
     suspend fun listModels(): List<String> = withContext(Dispatchers.IO) {
         val request = HttpRequest.newBuilder(URI.create("$baseUrl/api/tags")).GET().build()
         val response = mapConnectErrors { http.send(request, HttpResponse.BodyHandlers.ofString()) }
         if (response.statusCode() != 200) throw httpError(response.statusCode(), response.body())
         json.decodeFromString<OllamaTagsResponse>(response.body()).models.map { it.name }
-    }
-
-    /**
-     * No hardcoded model names anywhere: `OLLAMA_MODEL` env wins, otherwise the first model
-     * the source reports. Cached for the lifetime of this client.
-     */
-    suspend fun resolveModel(): String {
-        resolvedModel?.let { return it }
-        val model = System.getenv("OLLAMA_MODEL")?.takeIf { it.isNotBlank() }
-            ?: listModels().firstOrNull()
-            ?: throw OllamaException(ModularPluginBackendBundle.message("error.no.models", baseUrl))
-        resolvedModel = model
-        return model
     }
 
     /** Streams assistant tokens from `/api/chat` (NDJSON, one JSON object per line). */

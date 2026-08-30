@@ -19,7 +19,8 @@ data class ChatMessage(
 
     enum class ChatMessageType {
         AI_THINKING,
-        TEXT;
+        TEXT,
+        ERROR;
     }
 
     @JvmOverloads
@@ -31,6 +32,8 @@ data class ChatMessage(
     fun isTextMessage(): Boolean = this.type == TEXT
 
     fun isAIThinkingMessage(): Boolean = this.type == AI_THINKING
+
+    fun isErrorMessage(): Boolean = this.type == ChatMessageType.ERROR
 
     override fun matches(query: String): Boolean {
         if (query.isBlank()) return false

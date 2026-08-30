@@ -21,6 +21,7 @@ class MessageBubble(
 ) : JPanel() {
 
     private val isMyMessage = message.isMyMessage
+    private val isErrorMessage = message.isErrorMessage()
     private var contentArea: MessageContent? = null
     private var currentContent: String = message.content
 
@@ -31,7 +32,7 @@ class MessageBubble(
         add(Box.createVerticalStrut(JBUI.scale(ChatUIConstants.Spacing.MEDIUM)))
 
         when {
-            message.isTextMessage() -> {
+            message.isTextMessage() || message.isErrorMessage() -> {
                 contentArea = MessageContent(message).also { add(it) }
                 add(Box.createVerticalStrut(JBUI.scale(ChatUIConstants.Spacing.NORMAL)))
                 add(TimeStampLabel(message))
@@ -101,6 +102,7 @@ class MessageBubble(
 
     private fun getMessageBackground(): Color {
         return when {
+            isErrorMessage -> ChatAppColors.MessageBubble.errorBackground
             isHighlightedInSearch && isMyMessage -> ChatAppColors.MessageBubble.mySearchHighlightedBackground
             isHighlightedInSearch && !isMyMessage -> ChatAppColors.MessageBubble.othersSearchHighlightedBackground
             isMyMessage -> ChatAppColors.MessageBubble.myBackground
@@ -110,6 +112,7 @@ class MessageBubble(
 
     private fun getBorderColor(): Color {
         return when {
+            isErrorMessage -> ChatAppColors.MessageBubble.errorBorder
             isHighlightedInSearch -> ChatAppColors.MessageBubble.searchHighlightedBackgroundBorder
             isMatchingSearch && isMyMessage -> ChatAppColors.MessageBubble.matchingMyBorder
             isMatchingSearch && !isMyMessage -> ChatAppColors.MessageBubble.matchingOthersBorder
