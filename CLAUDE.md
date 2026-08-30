@@ -121,5 +121,6 @@ Sandbox testing needs Ollama reachable from the machine running the *backend* pr
 5. **M4 — @ mentions**: `FileSearchApi`, completion popup, structured attachments, prioritized context budget.
 6. **M5 — multi-IDE hardening**: `verifyPlugin` clean for IDEA/PyCharm/WebStorm; manual smoke test in at least PyCharm.
 7. **M6 — polish**: cancel button for in-flight generations, chat history within session, context-size indicator.
+8. **M7 — opt-in project indexing (local RAG)**: settings-gated; backend chunks + embeds project files via the endpoint's `/api/embed` (embedding model auto-picked from `/api/tags`, `OLLAMA_EMBED_MODEL` override), vectors stored under the IDE system path, question-time top-k retrieval merged into the context budget (mentions > open files > retrieved). Index errors must never block chat. Full design in DEVELOPMENT_PLAN.md §M7.
 
 Do not start milestone N+1 while N has known regressions.
