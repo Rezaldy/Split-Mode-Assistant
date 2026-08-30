@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./gradlew build)",
+      "Bash(./gradlew verifyPlugin)",
+      "Bash(curl -s http://localhost:11434/*)",
+      "Bash(curl.exe -s http://localhost:11434/*)",
+      "mcp__Claude_Browser__get_page_text",
+      "mcp__Claude_Browser__read_page",
+      "mcp__Claude_Browser__read_console_messages",
+      "mcp__Claude_Browser__find"
+    ]
+  }
+}
