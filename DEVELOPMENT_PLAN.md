@@ -219,4 +219,5 @@ pipeline, feature dark, unit tests) → **`m7-index-settings-incremental`**
   [x] M4 (@ mentions: FileSearchApi, popup, structured attachments,
   mention-priority budget; split-mode manual check pending; keyboard nav
   in popup deferred to M6 polish) ·
-  [ ] M5 · [ ] M6 · [ ] M7 (indexing/RAG — unblocked, next up)
+  [ ] M5 · [ ] M6 · [~] M7 (PR1 `m7-index-core` open; PR2 settings +
+  incremental and PR3 retrieval remain)

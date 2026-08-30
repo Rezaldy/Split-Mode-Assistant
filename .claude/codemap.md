@@ -32,6 +32,16 @@ Maintained by the code-recon skill.
   Clients come from `OllamaClientService` (URL-keyed cache). Frontend:
   `FrontendModelsModel` (APP) → `ChatViewModel.modelsStateFlow` → combo in
   `ChatHeader.updateModels`. (verified 2026-08-17)
+- **Project index / RAG core (M7 PR1)** — `backend/.../index/`: `Chunker`
+  (pure, line-based, tested), `IndexStore` (meta.json + vectors.bin under
+  `PathManager.getSystemPath()/code-assistant-index/<locationHash>`,
+  model/dims mismatch → null → rebuild), `ProjectIndexService`
+  (@Service PROJECT + scope; caps 4k files/25k chunks visible in status;
+  hash-skip reuse; sequential embed batches of 16; flush per 500 chunks).
+  Feature dark until PR2 (settings/IndexApi) + PR3 (retrieval).
+  `OllamaClient.embed()` via `/api/embed`; embedding model resolution in
+  `BackendModelsService.resolveEmbeddingModel` (env OLLAMA_EMBED_MODEL >
+  name heuristic). (verified 2026-08-17)
 - **@ mentions (M4)** — `FileSearchApi` in shared; backend
   `search/FileSearchService` (@Service PROJECT, whole-list cache nuked by
   any VFS change, name-beats-path scoring). Attachments travel as

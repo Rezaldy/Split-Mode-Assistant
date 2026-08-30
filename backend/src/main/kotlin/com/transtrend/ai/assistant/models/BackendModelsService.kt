@@ -27,6 +27,8 @@ class BackendModelsService(private val scope: CoroutineScope) {
     companion object {
         fun getInstance(): BackendModelsService =
             ApplicationManager.getApplication().getService(BackendModelsService::class.java)
+
+        private val EMBED_NAME_HINTS = listOf("embed", "bge", "minilm", "arctic")
     }
 
     private val _state = MutableStateFlow(ModelsStateDto())
@@ -82,6 +84,18 @@ class BackendModelsService(private val scope: CoroutineScope) {
         val client = OllamaClientService.getInstance().client()
         return client.listModels().firstOrNull()
             ?: throw OllamaException(ModularPluginBackendBundle.message("error.no.models", client.baseUrl))
+    }
+
+    /**
+     * Embedding model for indexing: `OLLAMA_EMBED_MODEL` env wins, else the first model
+     * whose name looks like an embedding model (`/api/tags` has no capability field).
+     */
+    suspend fun resolveEmbeddingModel(): String {
+        System.getenv("OLLAMA_EMBED_MODEL")?.takeIf { it.isNotBlank() }?.let { return it }
+        val client = OllamaClientService.getInstance().client()
+        return client.listModels().firstOrNull { name ->
+            EMBED_NAME_HINTS.any { hint -> hint in name.lowercase() }
+        } ?: throw OllamaException(ModularPluginBackendBundle.message("error.no.embed.model", client.baseUrl))
     }
 }
 

@@ -46,6 +46,12 @@ internal data class OllamaTagModel(val name: String)
 @Serializable
 internal data class OllamaErrorResponse(val error: String? = null)
 
+@Serializable
+internal data class OllamaEmbedRequest(val model: String, val input: List<String>)
+
+@Serializable
+internal data class OllamaEmbedResponse(val embeddings: List<List<Float>> = emptyList())
+
 /**
  * Client for one Ollama-compatible model source. JDK HttpClient + kotlinx.serialization only.
  *
@@ -63,6 +69,27 @@ class OllamaClient(val baseUrl: String) {
         val response = mapConnectErrors { http.send(request, HttpResponse.BodyHandlers.ofString()) }
         if (response.statusCode() != 200) throw httpError(response.statusCode(), response.body())
         json.decodeFromString<OllamaTagsResponse>(response.body()).models.map { it.name }
+    }
+
+    /** Embeds [inputs] via `/api/embed`; returns one vector per input, in order. */
+    suspend fun embed(model: String, inputs: List<String>): List<FloatArray> = withContext(Dispatchers.IO) {
+        val body = json.encodeToString(OllamaEmbedRequest.serializer(), OllamaEmbedRequest(model, inputs))
+        val request = HttpRequest.newBuilder(URI.create("$baseUrl/api/embed"))
+            .header("Content-Type", "application/json")
+            .POST(HttpRequest.BodyPublishers.ofString(body))
+            .build()
+        val response = mapConnectErrors { http.send(request, HttpResponse.BodyHandlers.ofString()) }
+        if (response.statusCode() != 200) throw httpError(response.statusCode(), response.body(), model)
+        val parsed = json.decodeFromString<OllamaEmbedResponse>(response.body())
+        if (parsed.embeddings.size != inputs.size) {
+            throw OllamaException(
+                ModularPluginBackendBundle.message(
+                    "error.generic",
+                    "embed returned ${parsed.embeddings.size} vectors for ${inputs.size} inputs",
+                )
+            )
+        }
+        parsed.embeddings.map { it.toFloatArray() }
     }
 
     /** Streams assistant tokens from `/api/chat` (NDJSON, one JSON object per line). */
