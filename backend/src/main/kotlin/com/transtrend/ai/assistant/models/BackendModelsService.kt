@@ -42,6 +42,10 @@ class BackendModelsService(private val scope: CoroutineScope) {
         return state
     }
 
+    fun refreshAsync() {
+        scope.launch { refresh() }
+    }
+
     suspend fun refresh() {
         val settings = AssistantSettings.getInstance()
         val client = OllamaClientService.getInstance().client()
