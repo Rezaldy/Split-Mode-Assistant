@@ -214,5 +214,7 @@ pipeline, feature dark, unit tests) → **`m7-index-settings-incremental`**
   [x] M1 (PR #6 — streaming verified incl. split mode, 2026-08-02) ·
   [x] M2 (model dropdown + persisted selection + error bubble; split-mode
   manual check pending) ·
-  [ ] M3 · [ ] M4 · [ ] M5 · [ ] M6 · [ ] M7 (indexing/RAG —
+  [x] M3 (settings panel, backend-registered; split-mode manual check
+  pending) ·
+  [ ] M4 · [ ] M5 · [ ] M6 · [ ] M7 (indexing/RAG —
   planned, blocked on M3+M4)

@@ -7,5 +7,10 @@
 
     <extensions defaultExtensionNs="com.intellij">
         <platform.rpc.backend.remoteApiProvider implementation="com.transtrend.ai.assistant.BackendRpcApiProvider"/>
+        <applicationConfigurable parentId="tools"
+                                 instance="com.transtrend.ai.assistant.settings.AssistantConfigurable"
+                                 id="com.transtrend.ai.assistant.settings"
+                                 bundle="messages.ModularPluginBackendBundle"
+                                 key="settings.display.name"/>
     </extensions>
 </idea-plugin>
