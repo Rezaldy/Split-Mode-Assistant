@@ -21,9 +21,10 @@ class BackendChatRepositoryRpcApi : ChatRepositoryRpcApi {
 
     override suspend fun sendMessage(
         projectId: ProjectId,
-        messageContent: String
+        messageContent: String,
+        attachments: List<String>
     ) {
         val backendProject = projectId.findProjectOrNull() ?: return
-        return BackendChatRepositoryModel.getInstance(backendProject).sendMessage(messageContent)
+        return BackendChatRepositoryModel.getInstance(backendProject).sendMessage(messageContent, attachments)
     }
 }

@@ -13,6 +13,14 @@ data class ModelsStateDto(
     val error: String? = null,
 )
 
+/** A project file offered by the `@` mention search. */
+@Serializable
+data class FileRefDto(
+    val path: String,
+    val presentablePath: String,
+    val fileName: String,
+)
+
 /** A file the backend will include as model context. Plain data only — never platform objects. */
 @Serializable
 data class ContextFileDto(

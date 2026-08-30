@@ -32,6 +32,15 @@ Maintained by the code-recon skill.
   Clients come from `OllamaClientService` (URL-keyed cache). Frontend:
   `FrontendModelsModel` (APP) → `ChatViewModel.modelsStateFlow` → combo in
   `ChatHeader.updateModels`. (verified 2026-08-17)
+- **@ mentions (M4)** — `FileSearchApi` in shared; backend
+  `search/FileSearchService` (@Service PROJECT, whole-list cache nuked by
+  any VFS change, name-beats-path scoring). Attachments travel as
+  `sendMessage(projectId, text, attachments: List<String>)` — full paths,
+  never re-parsed from text. Mention tokens+popup live in
+  `PromptInput` (`currentMentionQuery`/`insertMention`/`currentMentionPaths`);
+  debounce (250ms) is in `ChatViewModel.onMentionQuery`. Collector gives
+  mentions budget priority (`collect(mentionPaths, budget)`).
+  (verified 2026-08-17)
 - **Frontend remote-API acquisition** — NOT in the tool window:
   `FrontendChatRepositoryModel` (`@Service(PROJECT)`) wraps calls in
   `fleet.rpc.client.durable { }` and exposes a `StateFlow` via `stateIn`.

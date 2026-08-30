@@ -216,5 +216,7 @@ pipeline, feature dark, unit tests) → **`m7-index-settings-incremental`**
   manual check pending) ·
   [x] M3 (settings panel, backend-registered; split-mode manual check
   pending) ·
-  [ ] M4 · [ ] M5 · [ ] M6 · [ ] M7 (indexing/RAG —
-  planned, blocked on M3+M4)
+  [x] M4 (@ mentions: FileSearchApi, popup, structured attachments,
+  mention-priority budget; split-mode manual check pending; keyboard nav
+  in popup deferred to M6 polish) ·
+  [ ] M5 · [ ] M6 · [ ] M7 (indexing/RAG — unblocked, next up)

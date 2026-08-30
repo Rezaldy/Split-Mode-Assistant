@@ -8,6 +8,7 @@ import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.fileEditor.FileEditorManagerListener
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VirtualFile
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -47,22 +48,49 @@ class ProjectContextCollector(private val project: Project) : Disposable {
         refreshContextFiles()
     }
 
-    fun collect(budgetChars: Int = DEFAULT_BUDGET_CHARS): String = runReadAction {
+    fun collect(
+        mentionPaths: List<String> = emptyList(),
+        budgetChars: Int = DEFAULT_BUDGET_CHARS,
+    ): String = runReadAction {
         val documentManager = FileDocumentManager.getInstance()
         val block = StringBuilder()
+        val includedPaths = mutableSetOf<String>()
+
+        // @-mentioned files first: they take priority in the budget.
+        val fileSystem = LocalFileSystem.getInstance()
+        for (path in mentionPaths) {
+            if (block.length >= budgetChars) break
+            val file = fileSystem.findFileByPath(path)
+            when {
+                file == null || file.isDirectory ->
+                    block.append("// File: ").append(path).append(" [not found]\n\n")
+                file.fileType.isBinary ->
+                    block.append("// File: ").append(path).append(" [binary file omitted]\n\n")
+                else -> {
+                    includedPaths += file.path
+                    appendFile(block, file.path + " [mentioned]", documentManager.getDocument(file)?.text, budgetChars)
+                }
+            }
+        }
+
         for (file in openTextFiles()) {
             if (block.length >= budgetChars) break
-            val text = documentManager.getDocument(file)?.text ?: continue
-            block.append("// File: ").append(file.path).append('\n')
-            val remaining = budgetChars - block.length
-            if (text.length <= remaining) {
-                block.append(text)
-            } else {
-                block.append(text, 0, remaining.coerceAtLeast(0)).append("\n// [truncated]")
-            }
-            block.append("\n\n")
+            if (file.path in includedPaths) continue
+            appendFile(block, file.path, documentManager.getDocument(file)?.text, budgetChars)
         }
         block.toString()
+    }
+
+    private fun appendFile(block: StringBuilder, header: String, text: String?, budgetChars: Int) {
+        if (text == null) return
+        block.append("// File: ").append(header).append('\n')
+        val remaining = budgetChars - block.length
+        if (text.length <= remaining) {
+            block.append(text)
+        } else {
+            block.append(text, 0, remaining.coerceAtLeast(0)).append("\n// [truncated]")
+        }
+        block.append("\n\n")
     }
 
     private fun refreshContextFiles() {

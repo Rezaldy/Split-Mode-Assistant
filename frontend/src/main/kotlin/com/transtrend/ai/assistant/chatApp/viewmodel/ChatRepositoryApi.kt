@@ -3,6 +3,7 @@ package com.transtrend.ai.assistant.chatApp.viewmodel
 import kotlinx.coroutines.flow.StateFlow
 import com.transtrend.ai.assistant.ChatMessage
 import com.transtrend.ai.assistant.ContextFileDto
+import com.transtrend.ai.assistant.FileRefDto
 
 /**
  * Interface defining the contract for managing chat messages and interactions within a chat system.
@@ -19,8 +20,12 @@ interface ChatRepositoryApi {
      * Sends a message with the provided content.
      *
      * @param messageContent The content of the message to be sent.
+     * @param attachments Full paths of `@`-mentioned files (structured, not parsed from text).
      */
-    suspend fun sendMessage(messageContent: String)
+    suspend fun sendMessage(messageContent: String, attachments: List<String> = emptyList())
+
+    /** Fuzzy project-file search for the `@` popup; resolved on the backend. */
+    suspend fun searchFiles(query: String, limit: Int = 20): List<FileRefDto>
 
     /** Files the backend currently includes as model context (open files on the host). */
     val contextFilesFlow: StateFlow<List<ContextFileDto>>

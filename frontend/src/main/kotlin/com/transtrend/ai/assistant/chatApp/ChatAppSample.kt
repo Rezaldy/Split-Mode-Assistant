@@ -28,8 +28,9 @@ class ChatAppSample(
         contextFilesBar = ContextFilesBar()
         promptInput = PromptInput(
             onInputChanged = { text -> viewModel.onPromptInputChanged(text) },
-            onSend = { _ -> viewModel.onSendMessage() },
-            onStop = { _ -> viewModel.onAbortSendingMessage() }
+            onSend = { _ -> viewModel.onSendMessage(promptInput.currentMentionPaths()) },
+            onStop = { _ -> viewModel.onAbortSendingMessage() },
+            onMentionQuery = { query -> viewModel.onMentionQuery(query) }
         )
 
         val bottomPanel = JPanel(BorderLayout()).apply {
@@ -79,6 +80,14 @@ class ChatAppSample(
             viewModel.modelsStateFlow.collect { state ->
                 withContext(Dispatchers.EDT) {
                     toolbar.updateModels(state)
+                }
+            }
+        }
+
+        coroutineScope.launch {
+            viewModel.mentionResultsFlow.collect { results ->
+                withContext(Dispatchers.EDT) {
+                    promptInput.showMentionResults(results)
                 }
             }
         }

@@ -2,9 +2,14 @@ package com.transtrend.ai.assistant.chatApp.ui
 
 import com.intellij.icons.AllIcons
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.ui.popup.JBPopup
+import com.intellij.openapi.ui.popup.JBPopupFactory
+import com.intellij.ui.SimpleListCellRenderer
+import com.intellij.ui.awt.RelativePoint
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.components.JBTextArea
 import com.intellij.util.ui.JBUI
+import com.transtrend.ai.assistant.FileRefDto
 import com.transtrend.ai.assistant.ModularPluginFrontendBundle
 import com.transtrend.ai.assistant.chatApp.ui.utils.ButtonUtils
 import com.transtrend.ai.assistant.chatApp.ui.utils.ChatAppColors
@@ -31,7 +36,8 @@ import javax.swing.event.DocumentListener
 class PromptInput(
     private val onInputChanged: (String) -> Unit,
     private val onSend: (String) -> Unit,
-    private val onStop: (String) -> Unit
+    private val onStop: (String) -> Unit,
+    private val onMentionQuery: (String?) -> Unit = {}
 ) : JPanel() {
 
     private val textArea: JBTextArea
@@ -40,6 +46,10 @@ class PromptInput(
 
     private var currentState: MessageInputState = MessageInputState.Enabled("")
     private var skipInputChangeUpdate = false
+
+    /** Mention token ("@fileName") → full path; pruned against the text on send. */
+    private val mentions = mutableMapOf<String, String>()
+    private var mentionPopup: JBPopup? = null
 
     init {
         setupAppearance()
@@ -118,8 +128,59 @@ class PromptInput(
 
         val text = textArea.text
         onInputChanged(text)
+        onMentionQuery(currentMentionQuery())
 
         sendButton.isEnabled = currentState != MessageInputState.Disabled && text.isNotBlank()
+    }
+
+    /**
+     * The "@query" token being typed at the caret, or null when the caret isn't inside one.
+     * A mention token starts at an "@" preceded by start-of-text or whitespace.
+     */
+    private fun currentMentionQuery(): String? {
+        val caret = textArea.caretPosition.coerceAtMost(textArea.text.length)
+        val upToCaret = textArea.text.substring(0, caret)
+        val at = upToCaret.lastIndexOf('@')
+        if (at < 0) return null
+        if (at > 0 && !upToCaret[at - 1].isWhitespace()) return null
+        val query = upToCaret.substring(at + 1)
+        if (query.isEmpty() || query.length > 60 || query.any { it.isWhitespace() }) return null
+        return query
+    }
+
+    fun showMentionResults(results: List<FileRefDto>) {
+        hideMentionPopup()
+        if (results.isEmpty() || currentMentionQuery() == null) return
+        mentionPopup = JBPopupFactory.getInstance()
+            .createPopupChooserBuilder(results)
+            .setRenderer(SimpleListCellRenderer.create { label, value, _ -> label.text = value.presentablePath })
+            .setRequestFocus(false)
+            .setItemChosenCallback { insertMention(it) }
+            .createPopup()
+            .also { it.show(RelativePoint.getNorthWestOf(this)) }
+    }
+
+    private fun insertMention(ref: FileRefDto) {
+        val caret = textArea.caretPosition.coerceAtMost(textArea.text.length)
+        val at = textArea.text.substring(0, caret).lastIndexOf('@')
+        if (at < 0) return
+        val token = "@${ref.fileName}"
+        mentions[token] = ref.path
+        textArea.replaceRange("$token ", at, caret)
+        hideMentionPopup()
+        textArea.requestFocusInWindow()
+    }
+
+    private fun hideMentionPopup() {
+        mentionPopup?.cancel()
+        mentionPopup = null
+    }
+
+    /** Paths of mentions still present in the text; called at send time. */
+    fun currentMentionPaths(): List<String> {
+        val text = textArea.text
+        mentions.keys.retainAll { it in text }
+        return mentions.values.distinct().toList()
     }
 
     private fun setupKeyBindings() {
@@ -178,9 +239,11 @@ class PromptInput(
         val text = textArea.text.trim()
         if (text.isEmpty()) return
 
+        hideMentionPopup()
         onSend(text)
         skipInputChangeUpdate = true
         textArea.text = ""
+        mentions.clear()
     }
 
     private fun handleStop() {

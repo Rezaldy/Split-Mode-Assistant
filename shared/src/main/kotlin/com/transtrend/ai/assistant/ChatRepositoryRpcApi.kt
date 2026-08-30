@@ -31,8 +31,10 @@ interface ChatRepositoryRpcApi : RemoteApi<Unit> {
      * Sends a message with the provided content.
      *
      * @param messageContent The content of the message to be sent.
+     * @param attachments Full paths of `@`-mentioned files; they take priority in the
+     *   context budget. Structured on purpose — never parsed back out of the text.
      */
-    suspend fun sendMessage(projectId: ProjectId, messageContent: String)
+    suspend fun sendMessage(projectId: ProjectId, messageContent: String, attachments: List<String>)
 
     /**
      * Flow of the files the backend currently includes as model context (open files for now).

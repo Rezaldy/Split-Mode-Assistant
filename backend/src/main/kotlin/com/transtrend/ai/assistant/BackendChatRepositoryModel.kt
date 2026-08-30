@@ -45,11 +45,11 @@ class BackendChatRepositoryModel(private val project: Project) {
         return _messages.map { messagesList -> messagesList.map(ChatMessage::toChatMessageDto) }
     }
 
-    suspend fun sendMessage(messageContent: String) {
+    suspend fun sendMessage(messageContent: String, attachments: List<String> = emptyList()) {
         withContext(Dispatchers.IO) {
             _messages.value += chatMessageFactory.createUserMessage(messageContent)
             try {
-                streamAssistantResponse()
+                streamAssistantResponse(attachments)
             } catch (e: CancellationException) {
                 _messages.value = _messages.value.filter { !it.isAIThinkingMessage() }
                 throw e
@@ -70,12 +70,12 @@ class BackendChatRepositoryModel(private val project: Project) {
         }
     }
 
-    private suspend fun streamAssistantResponse() {
+    private suspend fun streamAssistantResponse(attachments: List<String>) {
         _messages.value += chatMessageFactory
             .createAIThinkingMessage(ModularPluginBackendBundle.message("chat.thinking"))
 
         val model = BackendModelsService.getInstance().resolveChatModel()
-        val requestMessages = buildRequestMessages()
+        val requestMessages = buildRequestMessages(attachments)
 
         val streamedMessage = chatMessageFactory.createAIMessage("")
         val content = StringBuilder()
@@ -92,12 +92,12 @@ class BackendChatRepositoryModel(private val project: Project) {
     }
 
     /** History (text messages only) prefixed by a system message carrying the project context. */
-    private fun buildRequestMessages(): List<OllamaChatMessage> {
+    private fun buildRequestMessages(attachments: List<String>): List<OllamaChatMessage> {
         val history = _messages.value
             .filter { it.isTextMessage() && it.content.isNotBlank() }
             .takeLast(MAX_HISTORY_MESSAGES)
             .map { OllamaChatMessage(role = if (it.isMyMessage) "user" else "assistant", content = it.content) }
-        val context = ProjectContextCollector.getInstance(project).collect()
+        val context = ProjectContextCollector.getInstance(project).collect(mentionPaths = attachments)
         val systemContent = buildString {
             append(SYSTEM_PROMPT)
             if (context.isNotBlank()) {

@@ -5,6 +5,7 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import com.transtrend.ai.assistant.ChatMessage
 import com.transtrend.ai.assistant.ContextFileDto
+import com.transtrend.ai.assistant.FileRefDto
 import com.transtrend.ai.assistant.ModelsStateDto
 
 interface ChatViewModelApi : Disposable {
@@ -16,9 +17,15 @@ interface ChatViewModelApi : Disposable {
 
     fun onModelSelected(name: String)
 
+    /** Results for the `@` mention popup; empty list hides it. */
+    val mentionResultsFlow: StateFlow<List<FileRefDto>>
+
+    /** null clears results; a query triggers a debounced backend search. */
+    fun onMentionQuery(query: String?)
+
     fun onPromptInputChanged(input: String)
 
-    fun onSendMessage()
+    fun onSendMessage(attachments: List<String> = emptyList())
 
     fun onAbortSendingMessage()
 
@@ -45,6 +52,32 @@ class ChatViewModel(
         coroutineScope.launch {
             modelsModel.select(name)
         }
+    }
+
+    private val _mentionResults = MutableStateFlow<List<FileRefDto>>(emptyList())
+    override val mentionResultsFlow: StateFlow<List<FileRefDto>> = _mentionResults.asStateFlow()
+
+    private var mentionSearchJob: Job? = null
+
+    override fun onMentionQuery(query: String?) {
+        mentionSearchJob?.cancel()
+        if (query.isNullOrBlank()) {
+            _mentionResults.value = emptyList()
+            return
+        }
+        mentionSearchJob = coroutineScope.launch {
+            delay(MENTION_SEARCH_DEBOUNCE_MS)
+            _mentionResults.value = try {
+                repository.searchFiles(query)
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                emptyList()
+            }
+        }
+    }
+
+    companion object {
+        private const val MENTION_SEARCH_DEBOUNCE_MS = 250L
     }
 
     private val _promptInputState = MutableStateFlow<MessageInputState>(MessageInputState.Disabled)
@@ -80,13 +113,13 @@ class ChatViewModel(
         }
     }
 
-    override fun onSendMessage() {
+    override fun onSendMessage(attachments: List<String>) {
         currentSendMessageJob = coroutineScope.launch {
             try {
                 val currentUserMessage = getCurrentInputTextIfNotEmpty() ?: return@launch
                 emitPromptInputState(MessageInputState.Sending(""))
 
-                repository.sendMessage(currentUserMessage)
+                repository.sendMessage(currentUserMessage, attachments)
 
                 emitPromptInputState(
                     when (val currentInputState = getCurrentInputTextIfNotEmpty()) {
