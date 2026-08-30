@@ -88,6 +88,13 @@ Sandbox testing needs Ollama reachable from the machine running the *backend* pr
 - PRs are reviewed and merged by the user — never self-merge without explicit instruction.
 - The milestone rule follows: a milestone is "done" when its PR is merged, and milestone N+1 starts from the merged state of N.
 
+## Model tiering (who does what work)
+
+- The **main session** (Fable/Opus-class) plans, designs RPC surfaces, reviews all delegated work, and personally handles the subtle parts: split-mode wiring, coroutine/streaming logic, Gradle/build changes, debugging, anything where monolithic-vs-split behavior could differ.
+- **Sonnet is the default implementer for routine work** — delegate via the `plugin-engineer` agent when the design is decided and an existing pattern shows the way: bundle strings, DTO fields with defaults, UI components copying an existing pattern, mechanical refactors/renames, docs/tracker updates, test boilerplate. It escalates back instead of improvising on anything subtle.
+- **Haiku navigates** (`codebase-navigator`); review/diagnosis agents (`boundary-guard`, `multi-ide-auditor`, `gradle-doctor`) run on Sonnet.
+- Delegated changes never go straight into a PR: the main session reviews the diff (`/boundary-check` + `/code-quality`) first. Delegation saves cost, not scrutiny.
+
 ## Conventions
 
 - Kotlin, official code style. Coroutines + `Flow` for anything async; no raw threads.
