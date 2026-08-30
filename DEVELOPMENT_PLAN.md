@@ -123,6 +123,49 @@ the PR description. Regressions in earlier milestones block merge.
   history within session, context-size indicator.
 - **Exit:** cancel verified backend-side; full regression pass of M1–M5.
 
+### M7 — opt-in project indexing, local RAG (three PRs; planned 2026-08-17)
+
+Goal: answer questions about ANY project file, not just open ones. Opt-in
+setting → backend chunks project text files, embeds them via the local
+Ollama endpoint (`POST /api/embed`), stores vectors on the host; at question
+time the question is embedded and top-k chunks are retrieved into the
+context budget. Frontend never sees vectors or file contents. Honest scope:
+retrieval-quality-bound, not omniscience.
+
+**User prerequisite:** an embedding model — `ollama pull nomic-embed-text`
+(none pulled as of 2026-08-17; `OLLAMA_EMBED_MODEL` env override supported,
+else auto-pick by name heuristic from `/api/tags`).
+
+Key decisions (full rationale in the approved plan, 2026-08-17):
+- Chunking: line-based, ≤2,000 chars, ~8-line overlap, path+line metadata;
+  pure-Kotlin chunker (unit-testable, no PSI — multi-IDE rule).
+- Storage: `PathManager.getSystemPath()/code-assistant-index/<locationHash>/`
+  (never `.idea/`): `meta.json` (kotlinx.serialization; schema/model/dims +
+  per-file content hash) + `vectors.bin` (raw float32 via JDK NIO).
+  Normalized at write → cosine = dot product. Model/dims mismatch → rebuild.
+- Build: `ProjectIndexService` (@Service PROJECT, injected scope);
+  `ProjectFileIndex.iterateContent`; many short read actions; sequential
+  embed batches of 16 (chat stays responsive); flush every ~500 chunks.
+  Hard caps 4k files / 25k chunks / 512 KB per file — cap hits VISIBLE in
+  status, never silent.
+- Incremental: `BulkFileListener` → dirty set → 3s debounce → re-embed only
+  hash-changed files; renames/deletes handled; per-file arrays, O(1) delete.
+- Retrieval: `collect()` becomes `suspend collect(question, budget)`;
+  brute-force top-12, score floor 0.30, dedupe vs open/mentioned files.
+  Budget: mentions first (M4 rule) → remainder 60% open files / 40%
+  retrieved, unused share spills over. Index off/no hits → today's behavior.
+- Settings (extends M3): `indexingEnabled=false`, `embeddingModel` combo,
+  Rebuild button, live status; `IndexApi` RPC for status only. Index errors
+  never block chat — degrade to open-files context + notification.
+
+PR sequence: **`m7-index-core`** (embed() + Chunker + IndexStore + build
+pipeline, feature dark, unit tests) → **`m7-index-settings-incremental`**
+(settings group, IndexApi, VFS incremental, notifications) →
+**`m7-retrieval`** (budget split + retrieval + context-bar source tag).
+- **Exit:** in split mode with all editors closed, a question about an
+  un-opened file is answered from its actual content; disabling indexing
+  reverts context to pre-M7 behavior; M4 mention priority regression-free.
+
 ## Session recipe (every coding session)
 
 1. `git checkout main && git pull`, branch.
@@ -169,4 +212,5 @@ the PR description. Regressions in earlier milestones block merge.
   [x] P0.4 assumption verification + codemap banked
 - [x] M0 (PR #5 — both run modes verified 2026-08-01) ·
   [x] M1 (PR #6 — streaming verified incl. split mode, 2026-08-02) ·
-  [ ] M2 · [ ] M3 · [ ] M4 · [ ] M5 · [ ] M6
+  [ ] M2 · [ ] M3 · [ ] M4 · [ ] M5 · [ ] M6 · [ ] M7 (indexing/RAG —
+  planned, blocked on M3+M4)
