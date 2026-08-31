@@ -2,8 +2,8 @@ import org.jetbrains.intellij.platform.gradle.IntelliJPlatformType
 import org.jetbrains.intellij.platform.gradle.TestFrameworkType
 import org.jetbrains.intellij.platform.gradle.tasks.aware.SplitModeAware
 
-group = "com.transtrend.ai"
-version = "0.2.0"
+group = "com.rizkybusiness.ai"
+version = "0.3.0"
 
 val intellijPlatformVersion = providers.gradleProperty("intellijPlatformVersion").get()
 

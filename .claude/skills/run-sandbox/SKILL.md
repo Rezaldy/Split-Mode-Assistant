@@ -52,7 +52,7 @@ sandbox from the user's tooling. THEN relaunch.
 - Split backend (where ALL plugin backend logs land):
   `.intellijPlatform/sandbox/*/*/log_runIdeBackend/idea.log`
 - Split frontend: `...log_runIdeFrontend/frontend/*/idea.log`
-- Grep for our code first: `transtrend|OllamaException|Chat generation`.
+- Grep for our code first: `rizkybusiness|OllamaException|Chat generation`.
 
 ## Known benign noise (do not chase these)
 

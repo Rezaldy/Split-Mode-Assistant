@@ -5,8 +5,8 @@
     </dependencies>
 
     <extensions defaultExtensionNs="com.intellij">
-        <toolWindow factoryClass="com.transtrend.ai.assistant.toolWindow.ModularPluginToolWindowFactory"
+        <toolWindow factoryClass="com.rizkybusiness.ai.assistant.toolWindow.ModularPluginToolWindowFactory"
                     id="Code Assistant"
-                    icon="com.transtrend.ai.assistant.ModularPluginIcons.ToolWindow"/>
+                    icon="com.rizkybusiness.ai.assistant.ModularPluginIcons.ToolWindow"/>
     </extensions>
 </idea-plugin>

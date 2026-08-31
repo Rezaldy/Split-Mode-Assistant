@@ -11,13 +11,13 @@ Maintained by the code-recon skill.
   `MutableStateFlow<List<ChatMessage>>`; `simulateAIResponse()` posts a
   thinking message then a canned reply from
   `repository/AIResponseGenerator.kt`. This is what M1 replaces.
-  `backend/src/main/kotlin/com/transtrend/ai/assistant/BackendChatRepositoryModel.kt`
+  `backend/src/main/kotlin/com/rizkybusiness/ai/assistant/BackendChatRepositoryModel.kt`
   (verified 2026-08-01)
 - **RPC contract** — single `@Rpc` interface, `getMessagesFlow(projectId):
   Flow<List<ChatMessageDto>>` + `sendMessage(projectId, text)`; resolves
   itself via `companion.getInstance()` →
   `RemoteApiProviderService.resolve(remoteApiDescriptor<...>())`.
-  `shared/src/main/kotlin/com/transtrend/ai/assistant/ChatRepositoryRpcApi.kt`
+  `shared/src/main/kotlin/com/rizkybusiness/ai/assistant/ChatRepositoryRpcApi.kt`
   (verified 2026-08-01)
 - **Backend RPC registration** — `BackendRpcApiProvider : RemoteApiProvider`
   registered via EP `platform.rpc.backend.remoteApiProvider` in
@@ -54,7 +54,7 @@ Maintained by the code-recon skill.
 - **Frontend remote-API acquisition** — NOT in the tool window:
   `FrontendChatRepositoryModel` (`@Service(PROJECT)`) wraps calls in
   `fleet.rpc.client.durable { }` and exposes a `StateFlow` via `stateIn`.
-  `frontend/src/main/kotlin/com/transtrend/ai/assistant/chatApp/viewmodel/FrontendChatRepositoryModel.kt`
+  `frontend/src/main/kotlin/com/rizkybusiness/ai/assistant/chatApp/viewmodel/FrontendChatRepositoryModel.kt`
   (verified 2026-08-01)
 - **Tool window** — `ModularPluginToolWindowFactory` (frontend), declared in
   `code-assistant.frontend.xml` with id "Code Assistant"; builds
