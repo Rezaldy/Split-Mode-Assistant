@@ -5,11 +5,11 @@ import com.transtrend.ai.assistant.index.ProjectIndexService
 import com.transtrend.ai.assistant.models.BackendModelsService
 import com.intellij.openapi.options.Configurable
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.ui.ComboBox
 import com.intellij.ui.TitledSeparator
 import com.intellij.ui.components.JBCheckBox
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.components.JBTextField
-import com.intellij.openapi.ui.ComboBox
 import com.intellij.util.ui.FormBuilder
 import com.intellij.util.ui.JBFont
 import com.intellij.util.ui.JBUI
@@ -24,27 +24,29 @@ import javax.swing.Timer
  * "Settings on Host", which is correct — the model-source connection and the project
  * index both live on the host. Project-level so the indexing controls can reach this
  * project's [ProjectIndexService]; the stored settings themselves are application-wide.
+ *
+ * Indexing group order (deliberate): configuration first (custom embedding source,
+ * model), then the enable toggle directly above the Rebuild button it governs.
  */
 class AssistantConfigurable(private val project: Project) : Configurable {
 
     private var panel: JPanel? = null
     private val baseUrlField = JBTextField(30)
     private val useProxyCheckbox = JBCheckBox(ModularPluginBackendBundle.message("settings.use.proxy"))
-    private val indexingCheckbox = JBCheckBox(ModularPluginBackendBundle.message("settings.index.enable"))
+    private val customEmbedUrlCheckbox =
+        JBCheckBox(ModularPluginBackendBundle.message("settings.index.custom.url"))
     private val embeddingUrlField = JBTextField(30)
+    private val embeddingUrlRow = JPanel(BorderLayout(JBUI.scale(8), 0)).apply {
+        isOpaque = false
+        add(JBLabel(ModularPluginBackendBundle.message("settings.index.url")), BorderLayout.WEST)
+        add(embeddingUrlField, BorderLayout.CENTER)
+    }
+    private val embeddingUrlHint = JBLabel()
     private val embeddingModelCombo = ComboBox<String>().apply { isEditable = true }
+    private val indexingCheckbox = JBCheckBox(ModularPluginBackendBundle.message("settings.index.enable"))
     private val rebuildButton = JButton(ModularPluginBackendBundle.message("settings.index.rebuild"))
     private val statusLabel = JBLabel()
     private var statusTimer: Timer? = null
-
-    /** Index controls only mean something while indexing is on — grey them out otherwise. */
-    private fun updateIndexControlsEnabled() {
-        val settings = AssistantSettings.getInstance()
-        val indexingOn = indexingCheckbox.isSelected
-        embeddingUrlField.isEnabled = indexingOn && settings.embeddingBaseUrlEnvOverride == null
-        embeddingModelCombo.isEnabled = indexingOn && settings.embeddingModelEnvOverride == null
-        rebuildButton.isEnabled = indexingOn
-    }
 
     override fun getDisplayName(): String =
         ModularPluginBackendBundle.message("settings.display.name")
@@ -52,14 +54,26 @@ class AssistantConfigurable(private val project: Project) : Configurable {
     override fun createComponent(): JComponent {
         val settings = AssistantSettings.getInstance()
         val envUrl = System.getenv("OLLAMA_BASE_URL")?.takeIf { it.isNotBlank() }
+        val envEmbedUrl = settings.embeddingBaseUrlEnvOverride
+        val envEmbedModel = settings.embeddingModelEnvOverride
+
         baseUrlField.emptyText.text = AssistantSettings.DEFAULT_BASE_URL
         baseUrlField.isEnabled = envUrl == null
-
-        val envEmbed = settings.embeddingModelEnvOverride
         populateEmbeddingCandidates()
 
         rebuildButton.addActionListener { ProjectIndexService.getInstance(project).rebuild() }
-        indexingCheckbox.addItemListener { updateIndexControlsEnabled() }
+        indexingCheckbox.addItemListener { rebuildButton.isEnabled = indexingCheckbox.isSelected }
+        customEmbedUrlCheckbox.addItemListener { updateEmbeddingUrlVisibility() }
+        customEmbedUrlCheckbox.isEnabled = envEmbedUrl == null
+        embeddingUrlField.isEnabled = envEmbedUrl == null
+        embeddingModelCombo.isEnabled = envEmbedModel == null
+        embeddingUrlHint.font = JBFont.small()
+        embeddingUrlHint.foreground = JBUI.CurrentTheme.ContextHelp.FOREGROUND
+        embeddingUrlHint.text = if (envEmbedUrl != null) {
+            ModularPluginBackendBundle.message("settings.index.url.env", envEmbedUrl)
+        } else {
+            ModularPluginBackendBundle.message("settings.index.url.hint")
+        }
         statusLabel.font = JBFont.small()
         statusTimer = Timer(500) { updateStatusLabel() }.also { it.start() }
 
@@ -72,51 +86,37 @@ class AssistantConfigurable(private val project: Project) : Configurable {
         }
         builder.addComponentToRightColumn(hintLabel(
             ModularPluginBackendBundle.message("settings.env.override.hint")))
-
         builder.addComponent(useProxyCheckbox)
             .addComponentToRightColumn(hintLabel(
                 ModularPluginBackendBundle.message("settings.use.proxy.hint")))
 
-        val envEmbedUrl = settings.embeddingBaseUrlEnvOverride
-        embeddingUrlField.emptyText.text =
-            ModularPluginBackendBundle.message("settings.index.url.placeholder")
-        embeddingUrlField.isEnabled = envEmbedUrl == null
-
+        // Project indexing: configuration first, then enable + Rebuild together.
         builder.addComponent(TitledSeparator(ModularPluginBackendBundle.message("settings.index.title")))
-            .addComponent(indexingCheckbox)
+            .addComponent(customEmbedUrlCheckbox)
+            .addComponent(embeddingUrlRow)
+            .addComponentToRightColumn(embeddingUrlHint)
             .addLabeledComponent(
-                ModularPluginBackendBundle.message("settings.index.url"),
-                embeddingUrlField,
+                ModularPluginBackendBundle.message("settings.index.model"),
+                embeddingModelCombo,
             )
-        if (envEmbedUrl != null) {
+        if (envEmbedModel != null) {
             builder.addComponentToRightColumn(hintLabel(
-                ModularPluginBackendBundle.message("settings.index.url.env", envEmbedUrl)))
-        } else {
-            builder.addComponentToRightColumn(hintLabel(
-                ModularPluginBackendBundle.message("settings.index.url.hint")))
-        }
-        builder.addLabeledComponent(
-            ModularPluginBackendBundle.message("settings.index.model"),
-            embeddingModelCombo,
-        )
-        if (envEmbed != null) {
-            builder.addComponentToRightColumn(hintLabel(
-                ModularPluginBackendBundle.message("settings.index.model.env", envEmbed)))
+                ModularPluginBackendBundle.message("settings.index.model.env", envEmbedModel)))
         } else {
             builder.addComponentToRightColumn(hintLabel(
                 ModularPluginBackendBundle.message("settings.index.model.hint")))
         }
+        builder.addComponent(indexingCheckbox)
         val statusRow = JPanel(BorderLayout(JBUI.scale(8), 0)).apply {
             isOpaque = false
             add(rebuildButton, BorderLayout.WEST)
             add(statusLabel, BorderLayout.CENTER)
         }
-        builder.addComponentToRightColumn(statusRow)
+        builder.addComponent(statusRow)
 
         return builder.addComponentFillVertically(JPanel(), 0).panel.also {
             panel = it
             reset()
-            updateIndexControlsEnabled()
             updateStatusLabel()
         }
     }
@@ -136,8 +136,20 @@ class AssistantConfigurable(private val project: Project) : Configurable {
         if (candidates.isEmpty()) service.refreshAsync()
     }
 
+    private fun updateEmbeddingUrlVisibility() {
+        val visible = customEmbedUrlCheckbox.isSelected
+        embeddingUrlRow.isVisible = visible
+        embeddingUrlHint.isVisible = visible
+        panel?.revalidate()
+        panel?.repaint()
+    }
+
     private fun comboText(): String =
         (embeddingModelCombo.editor.item?.toString() ?: "").trim()
+
+    /** The embedding URL the UI currently expresses: blank unless the custom box is on. */
+    private fun uiEmbeddingUrl(): String =
+        if (customEmbedUrlCheckbox.isSelected) embeddingUrlField.text.trim().trimEnd('/') else ""
 
     private fun updateStatusLabel() {
         statusLabel.text = when (val current = ProjectIndexService.getInstance(project).status.value) {
@@ -160,7 +172,7 @@ class AssistantConfigurable(private val project: Project) : Configurable {
         return baseUrlField.text.trim().trimEnd('/') != settings.storedBaseUrl ||
             useProxyCheckbox.isSelected != settings.useProxy ||
             indexingCheckbox.isSelected != settings.indexingEnabled ||
-            embeddingUrlField.text.trim().trimEnd('/') != settings.storedEmbeddingBaseUrl ||
+            uiEmbeddingUrl() != settings.storedEmbeddingBaseUrl ||
             comboText() != settings.storedEmbeddingModel
     }
 
@@ -172,10 +184,10 @@ class AssistantConfigurable(private val project: Project) : Configurable {
 
         val wasEnabled = settings.indexingEnabled
         val modelChanged = comboText() != settings.storedEmbeddingModel
-        val embedUrlChanged = embeddingUrlField.text.trim().trimEnd('/') != settings.storedEmbeddingBaseUrl
+        val embedUrlChanged = uiEmbeddingUrl() != settings.storedEmbeddingBaseUrl
         settings.indexingEnabled = indexingCheckbox.isSelected
         settings.storedEmbeddingModel = comboText()
-        settings.storedEmbeddingBaseUrl = embeddingUrlField.text
+        settings.storedEmbeddingBaseUrl = uiEmbeddingUrl()
 
         val indexService = ProjectIndexService.getInstance(project)
         when {
@@ -189,8 +201,12 @@ class AssistantConfigurable(private val project: Project) : Configurable {
         baseUrlField.text = settings.storedBaseUrl
         useProxyCheckbox.isSelected = settings.useProxy
         indexingCheckbox.isSelected = settings.indexingEnabled
+        rebuildButton.isEnabled = settings.indexingEnabled
         embeddingUrlField.text = settings.storedEmbeddingBaseUrl
+        customEmbedUrlCheckbox.isSelected =
+            settings.storedEmbeddingBaseUrl.isNotBlank() || settings.embeddingBaseUrlEnvOverride != null
         embeddingModelCombo.editor.item = settings.storedEmbeddingModel
+        updateEmbeddingUrlVisibility()
     }
 
     override fun disposeUIResources() {
