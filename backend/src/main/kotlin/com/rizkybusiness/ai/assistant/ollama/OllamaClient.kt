@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import java.io.IOException
@@ -24,16 +25,24 @@ class OllamaException(message: String, cause: Throwable? = null) : RuntimeExcept
 data class OllamaChatMessage(val role: String, val content: String)
 
 @Serializable
+internal data class OllamaChatOptions(
+    @SerialName("num_ctx") val numCtx: Int? = null,
+    @SerialName("num_predict") val numPredict: Int? = null,
+)
+
+@Serializable
 internal data class OllamaChatRequest(
     val model: String,
     val messages: List<OllamaChatMessage>,
     val stream: Boolean = true,
+    val options: OllamaChatOptions? = null,
 )
 
 @Serializable
 internal data class OllamaChatChunk(
     val message: OllamaChatMessage? = null,
     val done: Boolean = false,
+    @SerialName("done_reason") val doneReason: String? = null,
     val error: String? = null,
 )
 
@@ -99,9 +108,25 @@ class OllamaClient(val baseUrl: String, val useProxy: Boolean = false) {
         parsed.embeddings.map { it.toFloatArray() }
     }
 
-    /** Streams assistant tokens from `/api/chat` (NDJSON, one JSON object per line). */
-    fun chatStream(model: String, messages: List<OllamaChatMessage>): Flow<String> = flow {
-        val body = json.encodeToString(OllamaChatRequest.serializer(), OllamaChatRequest(model, messages))
+    /**
+     * Streams assistant tokens from `/api/chat` (NDJSON, one JSON object per line).
+     *
+     * [contextTokens] overrides Ollama's small default `num_ctx` — without it, large
+     * prompts (project context!) silently truncate replies. `num_predict` is pinned to
+     * unlimited; when the model still stops on a limit, [onDone] receives the server's
+     * `done_reason` (e.g. "length") so callers can tell the user instead of hiding it.
+     */
+    fun chatStream(
+        model: String,
+        messages: List<OllamaChatMessage>,
+        contextTokens: Int? = null,
+        onDone: (String?) -> Unit = {},
+    ): Flow<String> = flow {
+        val request0 = OllamaChatRequest(
+            model, messages,
+            options = OllamaChatOptions(numCtx = contextTokens, numPredict = -1),
+        )
+        val body = json.encodeToString(OllamaChatRequest.serializer(), request0)
         val request = HttpRequest.newBuilder(URI.create("$baseUrl/api/chat"))
             .header("Content-Type", "application/json")
             .POST(HttpRequest.BodyPublishers.ofString(body))
@@ -119,7 +144,10 @@ class OllamaClient(val baseUrl: String, val useProxy: Boolean = false) {
                     throw OllamaException(ModularPluginBackendBundle.message("error.stream.aborted", it))
                 }
                 chunk.message?.content?.takeIf { it.isNotEmpty() }?.let { emit(it) }
-                if (chunk.done) break
+                if (chunk.done) {
+                    onDone(chunk.doneReason)
+                    break
+                }
             }
         }
     }.flowOn(Dispatchers.IO)
