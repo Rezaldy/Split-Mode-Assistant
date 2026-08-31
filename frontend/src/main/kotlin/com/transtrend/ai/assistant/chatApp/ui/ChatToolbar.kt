@@ -35,6 +35,7 @@ class ChatToolbar(private val viewModel: ChatViewModel) : JPanel() {
         headerPanel = ChatHeader(
             onToggleSearch = { visible -> toggleSearch(visible) },
             onModelSelected = { name -> viewModel.onModelSelected(name) },
+            onRefreshModels = { viewModel.onRefreshModels() },
         )
 
         searchBar = ChatSearchBar(
