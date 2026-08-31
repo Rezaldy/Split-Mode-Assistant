@@ -18,6 +18,7 @@ class ChatAppSample(
     private val toolbar: ChatToolbar
     private val chatList: ChatList
     private val contextFilesBar: ContextFilesBar
+    private val modelsErrorBanner: ModelsErrorBanner
     private val promptInput: PromptInput
 
     init {
@@ -26,6 +27,7 @@ class ChatAppSample(
         toolbar = ChatToolbar(viewModel)
         chatList = ChatList()
         contextFilesBar = ContextFilesBar()
+        modelsErrorBanner = ModelsErrorBanner()
         promptInput = PromptInput(
             onInputChanged = { text -> viewModel.onPromptInputChanged(text) },
             onSend = { _ -> viewModel.onSendMessage(promptInput.currentMentionPaths()) },
@@ -39,8 +41,14 @@ class ChatAppSample(
             add(promptInput, BorderLayout.CENTER)
         }
 
+        val centerPanel = JPanel(BorderLayout()).apply {
+            isOpaque = false
+            add(modelsErrorBanner, BorderLayout.NORTH)
+            add(chatList, BorderLayout.CENTER)
+        }
+
         add(toolbar, BorderLayout.NORTH)
-        add(chatList, BorderLayout.CENTER)
+        add(centerPanel, BorderLayout.CENTER)
         add(bottomPanel, BorderLayout.SOUTH)
 
         subscribeToViewModelUpdates()
@@ -80,6 +88,7 @@ class ChatAppSample(
             viewModel.modelsStateFlow.collect { state ->
                 withContext(Dispatchers.EDT) {
                     toolbar.updateModels(state)
+                    modelsErrorBanner.setError(state.error)
                 }
             }
         }
