@@ -1,5 +1,6 @@
 package com.transtrend.ai.assistant.chatApp.ui
 
+import com.intellij.icons.AllIcons
 import com.intellij.openapi.ui.ComboBox
 import com.intellij.ui.components.JBLabel
 import com.intellij.util.ui.JBFont
@@ -21,6 +22,7 @@ import javax.swing.border.CompoundBorder
 class ChatHeader(
     private val onToggleSearch: (Boolean) -> Unit,
     private val onModelSelected: (String) -> Unit,
+    private val onRefreshModels: () -> Unit,
 ) : JPanel() {
     private var searchVisible = false
     private val modelCombo = ComboBox<String>()
@@ -69,8 +71,17 @@ class ChatHeader(
         layout = BoxLayout(this, BoxLayout.X_AXIS)
         isOpaque = false
         add(modelCombo)
+        add(createRefreshButton())
         add(Box.createHorizontalStrut(JBUI.scale(ChatUIConstants.Spacing.MEDIUM)))
         add(createSearchButton())
+    }
+
+    private fun createRefreshButton() = ButtonUtils.createActionButton(
+        icon = AllIcons.Actions.Refresh,
+        tooltip = ModularPluginFrontendBundle.message("chat.models.refresh"),
+        size = ChatUIConstants.Button.LARGE_ACTION_BUTTON_SIZE
+    ) {
+        onRefreshModels()
     }
 
     private fun createSearchButton() = ButtonUtils.createActionButton(

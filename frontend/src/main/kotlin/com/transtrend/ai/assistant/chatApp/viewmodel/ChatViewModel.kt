@@ -17,6 +17,8 @@ interface ChatViewModelApi : Disposable {
 
     fun onModelSelected(name: String)
 
+    fun onRefreshModels()
+
     /** Results for the `@` mention popup; empty list hides it. */
     val mentionResultsFlow: StateFlow<List<FileRefDto>>
 
@@ -51,6 +53,12 @@ class ChatViewModel(
     override fun onModelSelected(name: String) {
         coroutineScope.launch {
             modelsModel.select(name)
+        }
+    }
+
+    override fun onRefreshModels() {
+        coroutineScope.launch {
+            modelsModel.refresh()
         }
     }
 
