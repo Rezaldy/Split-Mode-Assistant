@@ -35,7 +35,13 @@ class ContextFilesBar : JPanel() {
         } else {
             label.text = ModularPluginFrontendBundle.message(
                 "chat.context.files",
-                files.joinToString(", ") { it.fileName },
+                files.joinToString(", ") { file ->
+                    if (file.source == "retrieved") {
+                        ModularPluginFrontendBundle.message("chat.context.retrieved", file.fileName)
+                    } else {
+                        file.fileName
+                    }
+                },
             )
             // Full paths on hover; the label itself stays compact.
             label.toolTipText = "<html>" + files.joinToString("<br>") { it.path } + "</html>"
