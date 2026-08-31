@@ -1,6 +1,7 @@
 package com.rizkybusiness.ai.assistant.ollama
 
 import com.rizkybusiness.ai.assistant.ModularPluginBackendBundle
+import com.intellij.openapi.diagnostic.thisLogger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -160,6 +161,8 @@ class OllamaClient(val baseUrl: String, val useProxy: Boolean = false) {
             .POST(HttpRequest.BodyPublishers.ofString(body))
             .build()
         val response = mapConnectErrors { http.send(request, HttpResponse.BodyHandlers.ofLines()) }
+        var sawDone = false
+        var chunkCount = 0
         response.body().use { lines ->
             if (response.statusCode() != 200) {
                 val firstLine = lines.findFirst().orElse("")
@@ -168,6 +171,7 @@ class OllamaClient(val baseUrl: String, val useProxy: Boolean = false) {
             for (line in lines.iterator()) {
                 if (line.isBlank()) continue
                 val chunk = json.decodeFromString<OllamaChatChunk>(line)
+                chunkCount++
                 chunk.error?.let {
                     throw OllamaException(ModularPluginBackendBundle.message("error.stream.aborted", it))
                 }
@@ -178,10 +182,19 @@ class OllamaClient(val baseUrl: String, val useProxy: Boolean = false) {
                     emit(OllamaStreamToken(it, isThinking = false))
                 }
                 if (chunk.done) {
+                    sawDone = true
                     onDone(chunk.doneReason)
                     break
                 }
             }
+        }
+        // Ollama always terminates a healthy stream with done:true. EOF without it means
+        // something between us and the model (proxy/gateway timeout, server death) cut
+        // the connection — silently accepting the partial reply hides real infrastructure
+        // problems (observed in the field: a corporate gateway chopping slow streams).
+        if (!sawDone) {
+            thisLogger().warn("Chat stream for '$model' ended without done:true after $chunkCount chunks")
+            throw OllamaException(ModularPluginBackendBundle.message("error.stream.incomplete"))
         }
     }.flowOn(Dispatchers.IO)
 
