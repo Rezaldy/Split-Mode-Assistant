@@ -77,6 +77,14 @@ Maintained by the code-recon skill.
 
 ## Gotchas
 
+- **RD client caches the plugin BY VERSION** — in real Remote Development
+  the JetBrains Client holds its own plugin copy; ship a changed RPC
+  contract under an unchanged version and the client/host skew fails
+  silently (changed methods hang, unchanged ones work, no log errors
+  anywhere — observed 2026-08-31 as "context bar works, chat bubbles
+  never appear"). Rule now in CLAUDE.md: version bump in the same PR as
+  any @Rpc/DTO change. Users must uninstall from BOTH host and client
+  plugin lists when in doubt. (verified 2026-08-31)
 - **ChatList renders by message id** — bubbles are created for new ids and
   removed for vanished ids; content changes to an EXISTING id must go
   through `MessageBubble.updateFrom` (added for M1 streaming — the template
