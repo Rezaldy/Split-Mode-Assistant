@@ -29,6 +29,7 @@ class AssistantConfigurable(private val project: Project) : Configurable {
 
     private var panel: JPanel? = null
     private val baseUrlField = JBTextField(30)
+    private val useProxyCheckbox = JBCheckBox(ModularPluginBackendBundle.message("settings.use.proxy"))
     private val indexingCheckbox = JBCheckBox(ModularPluginBackendBundle.message("settings.index.enable"))
     private val embeddingModelCombo = ComboBox<String>().apply { isEditable = true }
     private val statusLabel = JBLabel()
@@ -61,6 +62,10 @@ class AssistantConfigurable(private val project: Project) : Configurable {
         }
         builder.addComponentToRightColumn(hintLabel(
             ModularPluginBackendBundle.message("settings.env.override.hint")))
+
+        builder.addComponent(useProxyCheckbox)
+            .addComponentToRightColumn(hintLabel(
+                ModularPluginBackendBundle.message("settings.use.proxy.hint")))
 
         builder.addComponent(TitledSeparator(ModularPluginBackendBundle.message("settings.index.title")))
             .addComponent(indexingCheckbox)
@@ -126,6 +131,7 @@ class AssistantConfigurable(private val project: Project) : Configurable {
     override fun isModified(): Boolean {
         val settings = AssistantSettings.getInstance()
         return baseUrlField.text.trim().trimEnd('/') != settings.storedBaseUrl ||
+            useProxyCheckbox.isSelected != settings.useProxy ||
             indexingCheckbox.isSelected != settings.indexingEnabled ||
             comboText() != settings.storedEmbeddingModel
     }
@@ -133,6 +139,7 @@ class AssistantConfigurable(private val project: Project) : Configurable {
     override fun apply() {
         val settings = AssistantSettings.getInstance()
         settings.storedBaseUrl = baseUrlField.text
+        settings.useProxy = useProxyCheckbox.isSelected
         BackendModelsService.getInstance().refreshAsync()
 
         val wasEnabled = settings.indexingEnabled
@@ -150,6 +157,7 @@ class AssistantConfigurable(private val project: Project) : Configurable {
     override fun reset() {
         val settings = AssistantSettings.getInstance()
         baseUrlField.text = settings.storedBaseUrl
+        useProxyCheckbox.isSelected = settings.useProxy
         indexingCheckbox.isSelected = settings.indexingEnabled
         embeddingModelCombo.editor.item = settings.storedEmbeddingModel
     }

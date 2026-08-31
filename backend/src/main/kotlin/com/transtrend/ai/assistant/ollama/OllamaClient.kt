@@ -57,15 +57,18 @@ internal data class OllamaEmbedResponse(val embeddings: List<List<Float>> = empt
  *
  * No request timeout on purpose: streamed responses and model cold-starts can take minutes.
  */
-class OllamaClient(val baseUrl: String) {
+class OllamaClient(val baseUrl: String, val useProxy: Boolean = false) {
 
     private val json = Json { ignoreUnknownKeys = true }
     private val http = HttpClient.newBuilder()
         .connectTimeout(Duration.ofSeconds(10))
-        // Always connect directly: the model source is local/LAN infrastructure, and the
-        // backend JVM often carries corporate proxy settings that a web proxy answers
-        // with 403 for. This makes the plugin behave like a plain curl on the host.
-        .proxy(HttpClient.Builder.NO_PROXY)
+        .apply {
+            // Direct by default: a model source is usually local/LAN infrastructure, and
+            // a backend JVM carrying corporate proxy settings detours the traffic into a
+            // web proxy that answers 403 (curl-works-plugin-doesn't). The setting flips
+            // this to honor the IDE's proxy configuration via the default selector.
+            if (!useProxy) proxy(HttpClient.Builder.NO_PROXY)
+        }
         .build()
 
     suspend fun listModels(): List<String> = withContext(Dispatchers.IO) {

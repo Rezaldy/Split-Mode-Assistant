@@ -21,6 +21,7 @@ class AssistantSettings : PersistentStateComponent<AssistantSettings.State> {
         var selectedModel: String = ""
         var indexingEnabled: Boolean = false
         var embeddingModel: String = ""
+        var useProxy: Boolean = false
     }
 
     private var state = State()
@@ -62,6 +63,13 @@ class AssistantSettings : PersistentStateComponent<AssistantSettings.State> {
         get() = state.indexingEnabled
         set(value) {
             state.indexingEnabled = value
+        }
+
+    /** Off = direct connection (default); on = honor the IDE's HTTP proxy configuration. */
+    var useProxy: Boolean
+        get() = state.useProxy
+        set(value) {
+            state.useProxy = value
         }
 
     val embeddingModelEnvOverride: String?
