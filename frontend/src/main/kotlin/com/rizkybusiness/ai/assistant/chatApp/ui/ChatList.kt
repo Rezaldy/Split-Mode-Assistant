@@ -1,5 +1,6 @@
 package com.rizkybusiness.ai.assistant.chatApp.ui
 
+import com.intellij.openapi.project.Project
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.util.ui.JBUI
 import com.rizkybusiness.ai.assistant.ChatMessage
@@ -18,7 +19,7 @@ import javax.swing.JLabel
 import javax.swing.JPanel
 import javax.swing.JScrollPane
 
-class ChatList : JPanel() {
+class ChatList(private val project: Project? = null) : JPanel() {
     private val messagesContainer: JPanel
     private val scrollPane: JScrollPane
     private val emptyPlaceholder: JPanel
@@ -129,7 +130,7 @@ class ChatList : JPanel() {
         messages.forEachIndexed { index, message ->
             val existingBubble = messageBubbles[message.id]
             if (existingBubble == null) {
-                val bubble = MessageBubble(message)
+                val bubble = MessageBubble(message, project)
                 if (availableWidth > 0) bubble.updateAvailableWidth(availableWidth)
                 messageBubbles[message.id] = bubble
 

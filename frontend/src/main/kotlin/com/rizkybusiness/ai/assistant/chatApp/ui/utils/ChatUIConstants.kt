@@ -15,7 +15,7 @@ object ChatUIConstants {
 
     object MessageBubble {
         const val MIN_WIDTH = 120
-        const val MAX_WIDTH = 420
+        const val MAX_WIDTH = 720
         const val CORNER_RADIUS = 16
         const val VERTICAL_MARGIN = 6
         const val HORIZONTAL_MARGIN = 12
