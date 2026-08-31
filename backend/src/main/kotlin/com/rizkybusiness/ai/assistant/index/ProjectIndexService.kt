@@ -1,5 +1,6 @@
 package com.rizkybusiness.ai.assistant.index
 
+import com.rizkybusiness.ai.assistant.IndexStatusDto
 import com.rizkybusiness.ai.assistant.ModularPluginBackendBundle
 import com.rizkybusiness.ai.assistant.models.BackendModelsService
 import com.rizkybusiness.ai.assistant.ollama.OllamaClientService
@@ -33,10 +34,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.launch
 import java.nio.file.Path
@@ -115,6 +118,13 @@ class ProjectIndexService(private val project: Project, private val scope: Corou
     private val dirtyPaths = ConcurrentHashMap.newKeySet<String>()
     private val removedPaths = ConcurrentHashMap.newKeySet<String>()
     private val changeTickle = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+
+    /** Count of recorded-but-not-yet-reembedded paths — the cheap "unsynced" signal. */
+    private val _pendingChanges = MutableStateFlow(0)
+
+    private fun refreshPendingCount() {
+        _pendingChanges.value = dirtyPaths.size + removedPaths.size
+    }
 
     init {
         scope.launch {
@@ -309,6 +319,37 @@ class ProjectIndexService(private val project: Project, private val scope: Corou
         vfsConnection = null
         dirtyPaths.clear()
         removedPaths.clear()
+        refreshPendingCount()
+    }
+
+    /** Status + sync state as a plain DTO for the chat UI's indicator. */
+    fun statusDtoFlow(): Flow<IndexStatusDto> =
+        combine(status, _pendingChanges) { current, pending -> toDto(current, pending) }
+
+    private fun toDto(current: IndexStatus, pending: Int): IndexStatusDto {
+        val enabled = AssistantSettings.getInstance().indexingEnabled
+        val phase = when (current) {
+            is IndexStatus.Idle -> "idle"
+            is IndexStatus.Building -> "building"
+            is IndexStatus.Ready -> "ready"
+            is IndexStatus.Error -> "error"
+        }
+        val base = when (current) {
+            is IndexStatus.Idle -> ModularPluginBackendBundle.message("index.status.idle")
+            is IndexStatus.Building -> ModularPluginBackendBundle.message(
+                "index.status.building", current.filesDone, current.filesTotal, current.chunks)
+            is IndexStatus.Ready -> ModularPluginBackendBundle.message(
+                "index.status.ready", current.files, current.chunks, current.embeddingModel) +
+                (current.cappedNote?.let { " — $it" } ?: "")
+            is IndexStatus.Error -> ModularPluginBackendBundle.message("index.status.error", current.message)
+        }
+        val detail = if (pending > 0) {
+            base + " — " + ModularPluginBackendBundle.message("index.status.pending", pending)
+        } else base
+        val unsynced = pending > 0 ||
+            current is IndexStatus.Error ||
+            (enabled && current is IndexStatus.Idle)
+        return IndexStatusDto(enabled = enabled, phase = phase, detail = detail, unsynced = unsynced)
     }
 
     private fun recordEvents(events: List<VFileEvent>) {
@@ -331,7 +372,10 @@ class ProjectIndexService(private val project: Project, private val scope: Corou
                 else -> Unit
             }
         }
-        if (changed) changeTickle.tryEmit(Unit)
+        if (changed) {
+            refreshPendingCount()
+            changeTickle.tryEmit(Unit)
+        }
     }
 
     private suspend fun processIncremental() {
@@ -341,6 +385,7 @@ class ProjectIndexService(private val project: Project, private val scope: Corou
 
         val removed = removedPaths.toList().also { removedPaths.removeAll(it.toSet()) }
         val dirty = dirtyPaths.toList().also { dirtyPaths.removeAll(it.toSet()) }
+        refreshPendingCount()
         if (removed.isEmpty() && dirty.isEmpty()) return
 
         val updated = LinkedHashMap(entries)

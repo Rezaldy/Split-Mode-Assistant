@@ -10,6 +10,7 @@ import com.rizkybusiness.ai.assistant.CoroutineScopeHolder
 import com.rizkybusiness.ai.assistant.chatApp.ChatAppSample
 import com.rizkybusiness.ai.assistant.chatApp.viewmodel.ChatViewModel
 import com.rizkybusiness.ai.assistant.chatApp.viewmodel.FrontendChatRepositoryModel
+import com.rizkybusiness.ai.assistant.chatApp.viewmodel.FrontendIndexModel
 
 class ModularPluginToolWindowFactory : ToolWindowFactory, DumbAware {
     override fun shouldBeAvailable(project: Project) = true
@@ -21,7 +22,8 @@ class ModularPluginToolWindowFactory : ToolWindowFactory, DumbAware {
     private fun chatApp(project: Project, toolWindow: ToolWindow) {
         val viewModel = ChatViewModel(
             CoroutineScopeHolder.getInstance(project).createScope(ChatViewModel::class.java.simpleName),
-            FrontendChatRepositoryModel.getInstance(project)
+            FrontendChatRepositoryModel.getInstance(project),
+            indexModel = FrontendIndexModel.getInstance(project),
         )
         Disposer.register(toolWindow.disposable, viewModel)
 

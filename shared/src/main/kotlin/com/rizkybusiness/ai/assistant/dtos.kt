@@ -15,6 +15,18 @@ data class ModelsStateDto(
     val error: String? = null,
 )
 
+/** Project-index state for the chat UI's sync indicator. */
+@Serializable
+data class IndexStatusDto(
+    val enabled: Boolean = false,
+    /** "idle" | "building" | "ready" | "error" */
+    val phase: String = "idle",
+    /** Human-readable status line (localized on the backend). */
+    val detail: String = "",
+    /** True when the index lags the project: pending edits, never built, or errored. */
+    val unsynced: Boolean = false,
+)
+
 /** A project file offered by the `@` mention search. */
 @Serializable
 data class FileRefDto(

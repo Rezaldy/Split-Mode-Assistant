@@ -2,6 +2,7 @@
 
 package com.rizkybusiness.ai.assistant
 
+import com.rizkybusiness.ai.assistant.index.BackendIndexApi
 import com.rizkybusiness.ai.assistant.models.BackendModelsApi
 import com.rizkybusiness.ai.assistant.search.BackendFileSearchApi
 import com.intellij.platform.rpc.backend.RemoteApiProvider
@@ -17,6 +18,9 @@ internal class BackendRpcApiProvider : RemoteApiProvider {
         }
         remoteApi(remoteApiDescriptor<FileSearchApi>()) {
             BackendFileSearchApi()
+        }
+        remoteApi(remoteApiDescriptor<IndexApi>()) {
+            BackendIndexApi()
         }
     }
 }

@@ -102,6 +102,14 @@ class ChatAppSample(
         }
 
         coroutineScope.launch {
+            viewModel.indexStatusFlow.collect { status ->
+                withContext(Dispatchers.EDT) {
+                    toolbar.updateIndexStatus(status)
+                }
+            }
+        }
+
+        coroutineScope.launch {
             viewModel.searchChatMessagesHandler().searchStateFlow.collect { searchState ->
                 withContext(Dispatchers.EDT) {
                     toolbar.updateSearchState(searchState)
