@@ -1,6 +1,7 @@
 package com.rizkybusiness.ai.assistant.chatApp.ui
 
 import com.intellij.icons.AllIcons
+import com.intellij.openapi.project.Project
 import com.intellij.ui.components.JBLabel
 import com.intellij.util.ui.JBFont
 import com.intellij.util.ui.JBUI
@@ -18,14 +19,14 @@ import javax.swing.JPanel
  * still thinking (live "it's working" signal), auto-collapses to a toggle line once the
  * actual answer starts — unless the user has pinned it open/closed themselves.
  */
-class ThinkingSection : JPanel() {
+class ThinkingSection(project: Project? = null) : JPanel() {
 
     private val header = JBLabel().apply {
         font = JBFont.small()
         foreground = ChatAppColors.Text.timestamp
         cursor = Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)
     }
-    private val body = MarkdownContent()
+    private val body = MarkdownContent(project)
 
     private var expanded = true
     private var userPinned = false

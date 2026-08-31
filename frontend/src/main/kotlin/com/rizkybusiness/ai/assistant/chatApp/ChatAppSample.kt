@@ -25,7 +25,7 @@ class ChatAppSample(
         setupAppearance()
 
         toolbar = ChatToolbar(viewModel)
-        chatList = ChatList()
+        chatList = ChatList(project)
         contextFilesBar = ContextFilesBar()
         modelsErrorBanner = ModelsErrorBanner()
         promptInput = PromptInput(

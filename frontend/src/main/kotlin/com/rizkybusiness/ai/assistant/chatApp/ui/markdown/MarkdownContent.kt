@@ -3,10 +3,12 @@ package com.rizkybusiness.ai.assistant.chatApp.ui.markdown
 import com.intellij.ide.BrowserUtil
 import com.intellij.openapi.editor.EditorFactory
 import com.intellij.openapi.editor.colors.EditorColorsManager
+import com.intellij.openapi.editor.highlighter.EditorHighlighterFactory
 import com.intellij.openapi.fileTypes.FileType
 import com.intellij.openapi.fileTypes.FileTypeManager
 import com.intellij.openapi.fileTypes.PlainTextFileType
 import com.intellij.openapi.fileTypes.UnknownFileType
+import com.intellij.openapi.project.Project
 import com.intellij.ui.ColorUtil
 import com.intellij.ui.EditorTextField
 import com.intellij.ui.JBColor
@@ -30,7 +32,7 @@ import javax.swing.event.HyperlinkEvent
  * during a stream that is almost always just the last block, so no flicker and no
  * per-token editor churn.
  */
-class MarkdownContent : JPanel() {
+class MarkdownContent(private val project: Project? = null) : JPanel() {
 
     private var wrapWidthPx: Int = JBUI.scale(360)
     private var blocks: List<MarkdownBlocks.Block> = emptyList()
@@ -86,7 +88,7 @@ class MarkdownContent : JPanel() {
 
     private fun createView(block: MarkdownBlocks.Block): BlockView = when (block) {
         is MarkdownBlocks.Block.Paragraph -> ParagraphView(block, wrapWidthPx)
-        is MarkdownBlocks.Block.Code -> CodeView(block, wrapWidthPx)
+        is MarkdownBlocks.Block.Code -> CodeView(block, wrapWidthPx, project)
     }
 }
 
@@ -146,23 +148,36 @@ private class ParagraphView(block: MarkdownBlocks.Block.Paragraph, private var w
     override fun getMaximumSize(): Dimension = preferredSize
 }
 
-private class CodeView(block: MarkdownBlocks.Block.Code, private var wrapPx: Int) :
-    JPanel(), BlockView {
+private class CodeView(
+    block: MarkdownBlocks.Block.Code,
+    private var wrapPx: Int,
+    project: Project?,
+) : JPanel(), BlockView {
 
     private var currentText = block.text
-    private val field = EditorTextField(
-        EditorFactory.getInstance().createDocument(block.text),
-        null,
-        fileTypeFor(block.language),
-        /* isViewer = */ true,
-        /* oneLineMode = */ false,
-    ).apply {
-        setFontInheritedFromLAF(false)
-        addSettingsProvider { editor ->
-            editor.settings.isUseSoftWraps = true
-            editor.settings.additionalLinesCount = 0
-            editor.settings.isLineNumbersShown = false
-            editor.setBorder(JBUI.Borders.empty(4))
+    private val field = run {
+        val fileType = fileTypeFor(block.language)
+        // EditorTextField only installs syntax highlighting when it has a Project —
+        // a null project renders plain grey text. Belt and suspenders: pass the
+        // project AND set the highlighter explicitly for the current scheme.
+        EditorTextField(
+            EditorFactory.getInstance().createDocument(block.text),
+            project,
+            fileType,
+            /* isViewer = */ true,
+            /* oneLineMode = */ false,
+        ).apply {
+            setFontInheritedFromLAF(false)
+            addSettingsProvider { editor ->
+                // Code keeps its real line structure: no soft wraps, scroll horizontally.
+                editor.settings.isUseSoftWraps = false
+                editor.setHorizontalScrollbarVisible(true)
+                editor.settings.additionalLinesCount = 0
+                editor.settings.isLineNumbersShown = false
+                editor.setBorder(JBUI.Borders.empty(4))
+                editor.highlighter = EditorHighlighterFactory.getInstance()
+                    .createEditorHighlighter(project, fileType)
+            }
         }
     }
 

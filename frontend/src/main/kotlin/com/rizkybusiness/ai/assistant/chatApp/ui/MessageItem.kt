@@ -1,5 +1,6 @@
 package com.rizkybusiness.ai.assistant.chatApp.ui
 
+import com.intellij.openapi.project.Project
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.components.JBTextArea
 import com.intellij.util.ui.JBFont
@@ -17,6 +18,7 @@ import javax.swing.JPanel
 
 class MessageBubble(
     private val message: ChatMessage,
+    private val project: Project? = null,
     private var isMatchingSearch: Boolean = false,
     private var isHighlightedInSearch: Boolean = false
 ) : JPanel() {
@@ -36,12 +38,12 @@ class MessageBubble(
         when {
             message.isTextMessage() || message.isErrorMessage() -> {
                 if (!message.isMyMessage) {
-                    thinkingSection = ThinkingSection().also {
+                    thinkingSection = ThinkingSection(project).also {
                         it.setThinking(message.thinking, answerStarted = message.content.isNotBlank())
                         add(it)
                     }
                 }
-                contentArea = MarkdownContent().also {
+                contentArea = MarkdownContent(project).also {
                     it.setWrapWidth(JBUI.scale(ChatUIConstants.MessageBubble.CONTENT_WRAP_WIDTH))
                     it.setMarkdown(message.content)
                     add(it)
