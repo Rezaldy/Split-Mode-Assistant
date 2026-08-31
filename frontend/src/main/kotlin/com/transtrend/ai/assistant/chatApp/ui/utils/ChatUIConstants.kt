@@ -22,6 +22,9 @@ object ChatUIConstants {
         const val INNER_PADDING = 16
 
         const val CONTENT_WRAP_WIDTH = MAX_WIDTH - 2 * HORIZONTAL_MARGIN - 2 * INNER_PADDING
+
+        /** Never wrap narrower than this — below it, text becomes a vertical ribbon. */
+        const val MIN_CONTENT_WRAP_WIDTH = 80
     }
 
     object ThinkingIndicator {

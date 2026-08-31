@@ -55,6 +55,28 @@ class MessageBubble(
         }
     }
 
+    /**
+     * Bubbles must fit the tool window: with a fixed wrap width, a window narrower than
+     * the bubble lays it out beyond the visible area (no horizontal scrollbar exists) and
+     * the chat looks empty. The list feeds every bubble the current viewport width.
+     */
+    fun updateAvailableWidth(viewportWidthPx: Int) {
+        val content = contentArea ?: return
+        val chrome = JBUI.scale(
+            2 * (ChatUIConstants.MessageBubble.HORIZONTAL_MARGIN + ChatUIConstants.MessageBubble.INNER_PADDING) +
+                ChatUIConstants.Spacing.NORMAL
+        )
+        val target = (viewportWidthPx - chrome).coerceIn(
+            JBUI.scale(ChatUIConstants.MessageBubble.MIN_CONTENT_WRAP_WIDTH),
+            JBUI.scale(ChatUIConstants.MessageBubble.CONTENT_WRAP_WIDTH),
+        )
+        if (content.wrapWidthPx != target) {
+            content.wrapWidthPx = target
+            revalidate()
+            repaint()
+        }
+    }
+
     private fun setupAppearance() {
         layout = BoxLayout(this, BoxLayout.Y_AXIS)
         isOpaque = false
@@ -143,6 +165,10 @@ private class AuthorName(message: ChatMessage) : JBLabel() {
 }
 
 private class MessageContent(message: ChatMessage) : JBTextArea() {
+
+    /** Current wrap width in device px; driven by the visible viewport width. */
+    var wrapWidthPx: Int = JBUI.scale(ChatUIConstants.MessageBubble.CONTENT_WRAP_WIDTH)
+
     init {
         text = message.content
         font = JBFont.regular()
@@ -155,13 +181,12 @@ private class MessageContent(message: ChatMessage) : JBTextArea() {
         wrapStyleWord = true
         border = null
 
-        size = Dimension(JBUI.scale(ChatUIConstants.MessageBubble.CONTENT_WRAP_WIDTH), Short.MAX_VALUE.toInt())
+        size = Dimension(wrapWidthPx, Short.MAX_VALUE.toInt())
     }
 
     override fun getPreferredSize(): Dimension {
-        val width = JBUI.scale(ChatUIConstants.MessageBubble.CONTENT_WRAP_WIDTH)
-        size = Dimension(width, Short.MAX_VALUE.toInt())
-        return Dimension(width, super.getPreferredSize().height)
+        size = Dimension(wrapWidthPx, Short.MAX_VALUE.toInt())
+        return Dimension(wrapWidthPx, super.getPreferredSize().height)
     }
 
     override fun getMaximumSize(): Dimension = preferredSize

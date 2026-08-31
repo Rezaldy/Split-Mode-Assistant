@@ -11,6 +11,8 @@ import java.awt.CardLayout
 import java.awt.GridBagConstraints
 import java.awt.GridBagLayout
 import java.awt.Rectangle
+import java.awt.event.ComponentAdapter
+import java.awt.event.ComponentEvent
 import javax.swing.Box
 import javax.swing.JLabel
 import javax.swing.JPanel
@@ -23,6 +25,7 @@ class ChatList : JPanel() {
     private val cardPanel: JPanel
 
     private val messageBubbles = mutableMapOf<String, MessageBubble>()
+    private var availableWidth = 0
 
     companion object {
         private const val CARD_EMPTY = "empty"
@@ -42,6 +45,19 @@ class ChatList : JPanel() {
         }
 
         add(cardPanel, BorderLayout.CENTER)
+
+        // Bubbles wrap to the visible width — a narrow tool window must never hide them.
+        scrollPane.viewport.addComponentListener(object : ComponentAdapter() {
+            override fun componentResized(e: ComponentEvent) = applyAvailableWidth()
+        })
+    }
+
+    private fun applyAvailableWidth() {
+        val width = scrollPane.viewport.width
+        if (width <= 0 || width == availableWidth) return
+        availableWidth = width
+        messageBubbles.values.forEach { it.updateAvailableWidth(width) }
+        refresh()
     }
 
     private fun setupAppearance() {
@@ -114,6 +130,7 @@ class ChatList : JPanel() {
             val existingBubble = messageBubbles[message.id]
             if (existingBubble == null) {
                 val bubble = MessageBubble(message)
+                if (availableWidth > 0) bubble.updateAvailableWidth(availableWidth)
                 messageBubbles[message.id] = bubble
 
                 gbc.gridy = index
