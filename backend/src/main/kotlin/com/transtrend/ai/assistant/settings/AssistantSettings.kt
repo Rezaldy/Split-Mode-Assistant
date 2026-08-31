@@ -19,6 +19,8 @@ class AssistantSettings : PersistentStateComponent<AssistantSettings.State> {
     class State {
         var baseUrl: String = ""
         var selectedModel: String = ""
+        var indexingEnabled: Boolean = false
+        var embeddingModel: String = ""
     }
 
     private var state = State()
@@ -54,5 +56,21 @@ class AssistantSettings : PersistentStateComponent<AssistantSettings.State> {
         get() = state.baseUrl
         set(value) {
             state.baseUrl = value.trim().trimEnd('/')
+        }
+
+    var indexingEnabled: Boolean
+        get() = state.indexingEnabled
+        set(value) {
+            state.indexingEnabled = value
+        }
+
+    val embeddingModelEnvOverride: String?
+        get() = System.getenv("OLLAMA_EMBED_MODEL")?.takeIf { it.isNotBlank() }
+
+    /** Stored embedding model; blank = auto-pick by name heuristic. */
+    var storedEmbeddingModel: String
+        get() = state.embeddingModel
+        set(value) {
+            state.embeddingModel = value.trim()
         }
 }
