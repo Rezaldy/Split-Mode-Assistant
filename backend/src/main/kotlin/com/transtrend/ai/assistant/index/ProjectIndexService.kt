@@ -10,11 +10,13 @@ import com.intellij.openapi.diagnostic.thisLogger
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.roots.ProjectFileIndex
+import com.intellij.openapi.vfs.VfsUtilCore
 import com.intellij.openapi.vfs.VirtualFile
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -82,8 +84,11 @@ class ProjectIndexService(private val project: Project, private val scope: Corou
 
     /** Cancels any in-flight build and starts a full rebuild. */
     fun rebuild() {
-        buildJob?.cancel()
+        val previousJob = buildJob
         buildJob = scope.launch(Dispatchers.IO) {
+            // Wait the old build out completely: both jobs write the same store paths,
+            // and its cancellation handler must not stomp this build's status.
+            previousJob?.cancelAndJoin()
             try {
                 runBuild()
             } catch (e: CancellationException) {
@@ -123,8 +128,12 @@ class ProjectIndexService(private val project: Project, private val scope: Corou
                 break
             }
             // One SHORT read action per file — never one long one around the whole loop.
+            // Cached document (open files, unsaved edits) or raw VFS text: unopened files
+            // have no unsaved edits, so loadText is equivalent without materializing a
+            // Document per indexed file.
             val text = runReadAction {
-                FileDocumentManager.getInstance().getDocument(file)?.text
+                FileDocumentManager.getInstance().getCachedDocument(file)?.text
+                    ?: runCatching { VfsUtilCore.loadText(file) }.getOrNull()
             }?.take(MAX_FILE_CHARS) ?: continue
 
             val hash = sha256(text)
@@ -132,8 +141,14 @@ class ProjectIndexService(private val project: Project, private val scope: Corou
             val entry = if (reused != null) {
                 reused
             } else {
-                val chunks = chunker.chunk(text)
-                    .take(MAX_TOTAL_CHUNKS - chunksSoFar)
+                val allChunks = chunker.chunk(text)
+                val room = MAX_TOTAL_CHUNKS - chunksSoFar
+                val chunks = if (allChunks.size > room) {
+                    chunkCapHit = true
+                    allChunks.take(room)
+                } else {
+                    allChunks
+                }
                 if (chunks.isEmpty()) continue
                 val vectors = ArrayList<FloatArray>(chunks.size)
                 for (batch in chunks.chunked(EMBED_BATCH_SIZE)) {
