@@ -1,4 +1,4 @@
-# Development plan — Assistant (TT-AI-Assistant)
+# Development plan — Split Mode Assistant
 
 Living document. Updated via PR whenever scope, order, or status changes.
 Authoritative rules live in [CLAUDE.md](CLAUDE.md) (architecture, boundary
@@ -7,7 +7,7 @@ happens in which order, in which PR, verified how, and what could go wrong.
 
 ## Status snapshot (2026-08-01)
 
-**Done:** repo live at `Rezaldy/TT-AI-Assistant`; CLAUDE.md + BOOTSTRAP.md;
+**Done:** repo live at `Rezaldy/Split-Mode-Assistant`; CLAUDE.md + BOOTSTRAP.md;
 Claude tooling (agents: boundary-guard, multi-ide-auditor, gradle-doctor;
 skills: boundary-check, new-rpc, milestone-done, ollama-smoke, code-recon;
 seeded codemap); PR-only workflow documented (PR #1). **No plugin code yet.**
