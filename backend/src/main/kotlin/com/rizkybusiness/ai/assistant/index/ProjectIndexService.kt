@@ -141,8 +141,43 @@ class ProjectIndexService(private val project: Project, private val scope: Corou
             attachVfsListener()
             scope.launch(Dispatchers.IO) {
                 loadFromDisk()
-                if (entries.isEmpty()) rebuild()
+                // Changes made before this service woke up produced no VFS events —
+                // reconcile stored hashes against the current files so the sync
+                // indicator can't show green over a stale index.
+                if (entries.isEmpty()) rebuild() else reconcileWithDisk()
             }
+        }
+    }
+
+    /** One-time cheap staleness scan: hash-compare files vs the loaded index, queue diffs. */
+    private fun reconcileWithDisk() {
+        val current = entries
+        val (candidates, _) = enumerateFiles()
+        val seenPaths = mutableSetOf<String>()
+        var changed = false
+        for (file in candidates) {
+            seenPaths += file.path
+            val entry = current[file.path]
+            if (entry == null) {
+                dirtyPaths += file.path
+                changed = true
+                continue
+            }
+            val text = readFileText(file) ?: continue
+            if (sha256(text) != entry.contentHash) {
+                dirtyPaths += file.path
+                changed = true
+            }
+        }
+        for (path in current.keys) {
+            if (path !in seenPaths) {
+                removedPaths += path
+                changed = true
+            }
+        }
+        if (changed) {
+            refreshPendingCount()
+            changeTickle.tryEmit(Unit)
         }
     }
 
@@ -387,7 +422,20 @@ class ProjectIndexService(private val project: Project, private val scope: Corou
         val dirty = dirtyPaths.toList().also { dirtyPaths.removeAll(it.toSet()) }
         refreshPendingCount()
         if (removed.isEmpty() && dirty.isEmpty()) return
+        try {
+            processChanges(removed, dirty)
+        } catch (e: Exception) {
+            // Failed work goes back in the queue: the indicator stays honestly unsynced
+            // and the next VFS event or manual rebuild retries these paths.
+            removedPaths.addAll(removed)
+            dirtyPaths.addAll(dirty)
+            refreshPendingCount()
+            throw e
+        }
+    }
 
+    private suspend fun processChanges(removed: List<String>, dirty: List<String>) {
+        val model = currentEmbeddingModel ?: return
         val updated = LinkedHashMap(entries)
         removed.forEach { updated.remove(it) }
 
