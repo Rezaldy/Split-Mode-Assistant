@@ -62,6 +62,10 @@ class OllamaClient(val baseUrl: String) {
     private val json = Json { ignoreUnknownKeys = true }
     private val http = HttpClient.newBuilder()
         .connectTimeout(Duration.ofSeconds(10))
+        // Always connect directly: the model source is local/LAN infrastructure, and the
+        // backend JVM often carries corporate proxy settings that a web proxy answers
+        // with 403 for. This makes the plugin behave like a plain curl on the host.
+        .proxy(HttpClient.Builder.NO_PROXY)
         .build()
 
     suspend fun listModels(): List<String> = withContext(Dispatchers.IO) {
