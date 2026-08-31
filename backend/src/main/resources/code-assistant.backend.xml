@@ -12,6 +12,7 @@
                              id="com.rizkybusiness.ai.assistant.settings"
                              bundle="messages.ModularPluginBackendBundle"
                              key="settings.display.name"/>
+        <postStartupActivity implementation="com.rizkybusiness.ai.assistant.index.IndexStartupActivity"/>
         <notificationGroup id="Split Mode Assistant"
                            displayType="BALLOON"
                            bundle="messages.ModularPluginBackendBundle"
