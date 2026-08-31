@@ -147,7 +147,7 @@ class ProjectContextCollector(private val project: Project) : Disposable {
             val embeddingModel = indexService.currentEmbeddingModel
             if (entries.isEmpty() || embeddingModel == null) return emptyList()
 
-            val client = OllamaClientService.getInstance().client()
+            val client = OllamaClientService.getInstance().embeddingClient()
             val query = VectorMath.normalizeInPlace(client.embed(embeddingModel, listOf(question)).first())
             // Open + mentioned files are already in the context in full — never retrieve them.
             val excluded = mentionPaths.toSet() + runReadAction { openTextFiles().map { it.path } }

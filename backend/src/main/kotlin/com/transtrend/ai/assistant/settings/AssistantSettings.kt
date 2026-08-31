@@ -21,6 +21,7 @@ class AssistantSettings : PersistentStateComponent<AssistantSettings.State> {
         var selectedModel: String = ""
         var indexingEnabled: Boolean = false
         var embeddingModel: String = ""
+        var embeddingBaseUrl: String = ""
         var useProxy: Boolean = false
     }
 
@@ -81,4 +82,20 @@ class AssistantSettings : PersistentStateComponent<AssistantSettings.State> {
         set(value) {
             state.embeddingModel = value.trim()
         }
+
+    /** Stored embedding source URL; blank = embeddings go to the main model source. */
+    var storedEmbeddingBaseUrl: String
+        get() = state.embeddingBaseUrl
+        set(value) {
+            state.embeddingBaseUrl = value.trim().trimEnd('/')
+        }
+
+    val embeddingBaseUrlEnvOverride: String?
+        get() = System.getenv("OLLAMA_EMBED_BASE_URL")?.takeIf { it.isNotBlank() }
+
+    /** Env > stored > the main model-source URL. Chat and embeddings may target different instances. */
+    val effectiveEmbeddingBaseUrl: String
+        get() = (embeddingBaseUrlEnvOverride
+            ?: state.embeddingBaseUrl.takeIf { it.isNotBlank() }
+            ?: effectiveBaseUrl).trimEnd('/')
 }

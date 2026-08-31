@@ -94,7 +94,8 @@ class BackendModelsService(private val scope: CoroutineScope) {
         val settings = AssistantSettings.getInstance()
         settings.embeddingModelEnvOverride?.let { return it }
         settings.storedEmbeddingModel.takeIf { it.isNotBlank() }?.let { return it }
-        val client = OllamaClientService.getInstance().client()
+        // Heuristic auto-pick runs against the EMBEDDING instance's model list.
+        val client = OllamaClientService.getInstance().embeddingClient()
         return client.listModels().firstOrNull { name ->
             EMBED_NAME_HINTS.any { hint -> hint in name.lowercase() }
         } ?: throw OllamaException(ModularPluginBackendBundle.message("error.no.embed.model", client.baseUrl))
