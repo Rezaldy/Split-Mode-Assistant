@@ -1,7 +1,9 @@
 package com.transtrend.ai.assistant
 
 import kotlinx.serialization.Serializable
+import java.time.Instant
 import java.time.LocalDateTime
+import java.time.ZoneId
 
 /** Snapshot of the model source's discovered models and current selection. */
 @Serializable
@@ -36,8 +38,8 @@ data class ChatMessageDto(
     val content: String,
     val author: String,
     val isMyMessage: Boolean,
-    @Serializable(with = LocalDateTimeSerializer::class)
-    val timestamp: LocalDateTime,
+    /** Epoch millis — plain data only on the wire; rendered in the client's timezone. */
+    val timestampEpochMillis: Long,
     val type: ChatMessage.ChatMessageType
 )
 
@@ -47,7 +49,8 @@ fun ChatMessageDto.toChatMessage(): ChatMessage {
         content = content,
         author = author,
         isMyMessage = isMyMessage,
-        timestamp = timestamp,
+        timestamp = LocalDateTime.ofInstant(
+            Instant.ofEpochMilli(timestampEpochMillis), ZoneId.systemDefault()),
         type = type
     )
 }
@@ -58,7 +61,7 @@ fun ChatMessage.toChatMessageDto(): ChatMessageDto {
         content = content,
         author = author,
         isMyMessage = isMyMessage,
-        timestamp = timestamp,
+        timestampEpochMillis = timestamp.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli(),
         type = type
     )
 }

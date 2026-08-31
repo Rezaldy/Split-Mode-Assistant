@@ -41,7 +41,9 @@ Keep the surface small. Three interfaces:
 - `ModelsApi` — `listModels(): List<ModelInfo>`, `getSelectedModel()`, `selectModel(name)`.
 - `FileSearchApi` — `search(query: String, limit: Int): List<FileRef>` where `FileRef = (path, presentablePath, fileName)`. Powers the `@` popup.
 
-DTOs are `@Serializable` data classes. Never pass PSI, VFS, or any platform object across RPC — paths and plain data only.
+DTOs are `@Serializable` data classes. Never pass PSI, VFS, or any platform object across RPC — paths and plain data only, and no custom serializers (encode times as epoch millis, not `LocalDateTime`).
+
+**Wire-contract rule (learned in real Remote Development):** any change to an `@Rpc` interface or DTO is a wire-contract change — **bump the plugin version in the same PR**. The JetBrains Client keeps its own copy of the plugin keyed by version; a host and client both claiming the same version with different contracts fails *silently* (changed methods hang or deliver nothing, identical ones keep working — no error in any log).
 
 ### Key backend components
 
