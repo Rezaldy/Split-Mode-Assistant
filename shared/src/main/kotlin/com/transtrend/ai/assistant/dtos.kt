@@ -26,6 +26,8 @@ data class FileRefDto(
 data class ContextFileDto(
     val path: String,
     val fileName: String,
+    /** "open" or "retrieved"; default keeps the wire format compatible. */
+    val source: String = "open",
 )
 
 @Serializable

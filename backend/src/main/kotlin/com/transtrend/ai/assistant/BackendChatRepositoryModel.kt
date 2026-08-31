@@ -30,7 +30,8 @@ class BackendChatRepositoryModel(private val project: Project) {
         private const val MAX_HISTORY_MESSAGES = 20
         private const val SYSTEM_PROMPT =
             "You are a concise coding assistant embedded in a JetBrains IDE. " +
-                "Use the provided project context when it is relevant to the question."
+                "Use the provided project context when it is relevant to the question. " +
+                "Snippets labeled [retrieved] were found by semantic search of the project index."
     }
 
     private val chatMessageFactory = ChatMessageFactory(
@@ -49,7 +50,7 @@ class BackendChatRepositoryModel(private val project: Project) {
         withContext(Dispatchers.IO) {
             _messages.value += chatMessageFactory.createUserMessage(messageContent)
             try {
-                streamAssistantResponse(attachments)
+                streamAssistantResponse(messageContent, attachments)
             } catch (e: CancellationException) {
                 _messages.value = _messages.value.filter { !it.isAIThinkingMessage() }
                 throw e
@@ -70,12 +71,12 @@ class BackendChatRepositoryModel(private val project: Project) {
         }
     }
 
-    private suspend fun streamAssistantResponse(attachments: List<String>) {
+    private suspend fun streamAssistantResponse(question: String, attachments: List<String>) {
         _messages.value += chatMessageFactory
             .createAIThinkingMessage(ModularPluginBackendBundle.message("chat.thinking"))
 
         val model = BackendModelsService.getInstance().resolveChatModel()
-        val requestMessages = buildRequestMessages(attachments)
+        val requestMessages = buildRequestMessages(question, attachments)
 
         val streamedMessage = chatMessageFactory.createAIMessage("")
         val content = StringBuilder()
@@ -92,12 +93,13 @@ class BackendChatRepositoryModel(private val project: Project) {
     }
 
     /** History (text messages only) prefixed by a system message carrying the project context. */
-    private fun buildRequestMessages(attachments: List<String>): List<OllamaChatMessage> {
+    private suspend fun buildRequestMessages(question: String, attachments: List<String>): List<OllamaChatMessage> {
         val history = _messages.value
             .filter { it.isTextMessage() && it.content.isNotBlank() }
             .takeLast(MAX_HISTORY_MESSAGES)
             .map { OllamaChatMessage(role = if (it.isMyMessage) "user" else "assistant", content = it.content) }
-        val context = ProjectContextCollector.getInstance(project).collect(mentionPaths = attachments)
+        val context = ProjectContextCollector.getInstance(project)
+            .collect(question = question, mentionPaths = attachments)
         val systemContent = buildString {
             append(SYSTEM_PROMPT)
             if (context.isNotBlank()) {
