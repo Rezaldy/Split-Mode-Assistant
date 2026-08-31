@@ -6,10 +6,10 @@
     </dependencies>
 
     <extensions defaultExtensionNs="com.intellij">
-        <platform.rpc.backend.remoteApiProvider implementation="com.transtrend.ai.assistant.BackendRpcApiProvider"/>
+        <platform.rpc.backend.remoteApiProvider implementation="com.rizkybusiness.ai.assistant.BackendRpcApiProvider"/>
         <projectConfigurable parentId="tools"
-                             instance="com.transtrend.ai.assistant.settings.AssistantConfigurable"
-                             id="com.transtrend.ai.assistant.settings"
+                             instance="com.rizkybusiness.ai.assistant.settings.AssistantConfigurable"
+                             id="com.rizkybusiness.ai.assistant.settings"
                              bundle="messages.ModularPluginBackendBundle"
                              key="settings.display.name"/>
         <notificationGroup id="Split Mode Assistant"

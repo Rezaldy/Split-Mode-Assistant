@@ -1,7 +1,7 @@
 <idea-plugin>
     <id>code-assistant</id>
     <name>Split Mode Assistant</name>
-    <vendor>Transtrend</vendor>
+    <vendor>Rizkybusiness</vendor>
 
     <depends>com.intellij.modules.platform</depends>
 

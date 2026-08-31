@@ -63,7 +63,7 @@ the PR description. Regressions in earlier milestones block merge.
 
 ### M0 — template runs (`m0-template-import`, continues P0.3)
 - Rename identity (decided 2026-08-01): plugin id **`code-assistant`**,
-  group **`com.transtrend.ai`** — apply in `gradle.properties`
+  group **`com.rizkybusiness.ai`** — apply in `gradle.properties`
   (group/name/version) and `plugin.xml` (`<id>`, `<name>`, `<vendor>`);
   confirm only `<depends>com.intellij.modules.platform</depends>`.
 - **Exit:** demo chat echoes in monolithic `runIde` AND the split-mode run
@@ -189,12 +189,17 @@ pipeline, feature dark, unit tests) → **`m7-index-settings-incremental`**
 ## Decisions log
 
 - **2026-08-01 — Plugin identity:** id `code-assistant`, group
-  `com.transtrend.ai`. (Vendor display name for `plugin.xml` assumed
-  "Transtrend" — flag at M0 rename if wrong.)
+  `com.rizkybusiness.ai`. (Vendor display name for `plugin.xml` assumed
+  "Rizkybusiness" — flag at M0 rename if wrong.)
 - **2026-08-01 — No hardcoded models:** model options always come from the
   Ollama endpoint (`/api/tags`). M1 auto-picks the first available (env
   override wins); M2 adds user selection. No model name appears in code.
 - **2026-08-01 — PR-only workflow** (PR #1).
+- **2026-08-31 — Rebrand to Rizkybusiness:** vendor, Gradle group and
+  package `com.transtrend.ai` → `com.rizkybusiness.ai` (personal project
+  identity; plugin id `code-assistant` and name "Split Mode Assistant"
+  unchanged). Version bumped to 0.3.0 — package rename changes serialized
+  qualified names, i.e. a wire-contract change.
 - **2026-08-01 — Template README dropped at import** (approved in the
   P0→M1 execution plan): its RPC-flow walkthrough gets banked into
   `.claude/codemap.md`; a project README comes later.
