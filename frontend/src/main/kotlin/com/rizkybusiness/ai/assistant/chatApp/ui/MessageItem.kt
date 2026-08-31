@@ -6,6 +6,7 @@ import com.intellij.util.ui.JBFont
 import com.intellij.util.ui.JBUI
 import com.rizkybusiness.ai.assistant.ChatMessage
 import com.rizkybusiness.ai.assistant.ModularPluginFrontendBundle
+import com.rizkybusiness.ai.assistant.chatApp.ui.markdown.MarkdownContent
 import com.rizkybusiness.ai.assistant.chatApp.ui.utils.ChatAppColors
 import com.rizkybusiness.ai.assistant.chatApp.ui.utils.ChatUIConstants
 import java.awt.*
@@ -22,7 +23,7 @@ class MessageBubble(
 
     private val isMyMessage = message.isMyMessage
     private val isErrorMessage = message.isErrorMessage()
-    private var contentArea: MessageContent? = null
+    private var contentArea: MarkdownContent? = null
     private var currentContent: String = message.content
 
     init {
@@ -33,7 +34,11 @@ class MessageBubble(
 
         when {
             message.isTextMessage() || message.isErrorMessage() -> {
-                contentArea = MessageContent(message).also { add(it) }
+                contentArea = MarkdownContent().also {
+                    it.setWrapWidth(JBUI.scale(ChatUIConstants.MessageBubble.CONTENT_WRAP_WIDTH))
+                    it.setMarkdown(message.content)
+                    add(it)
+                }
                 add(Box.createVerticalStrut(JBUI.scale(ChatUIConstants.Spacing.NORMAL)))
                 add(TimeStampLabel(message))
             }
@@ -49,7 +54,7 @@ class MessageBubble(
         if (updated.content == currentContent) return
         currentContent = updated.content
         contentArea?.let {
-            it.text = updated.content
+            it.setMarkdown(updated.content)
             revalidate()
             repaint()
         }
@@ -70,11 +75,9 @@ class MessageBubble(
             JBUI.scale(ChatUIConstants.MessageBubble.MIN_CONTENT_WRAP_WIDTH),
             JBUI.scale(ChatUIConstants.MessageBubble.CONTENT_WRAP_WIDTH),
         )
-        if (content.wrapWidthPx != target) {
-            content.wrapWidthPx = target
-            revalidate()
-            repaint()
-        }
+        content.setWrapWidth(target)
+        revalidate()
+        repaint()
     }
 
     private fun setupAppearance() {
@@ -162,34 +165,6 @@ private class AuthorName(message: ChatMessage) : JBLabel() {
         foreground = ChatAppColors.Text.authorName
         alignmentX = LEFT_ALIGNMENT
     }
-}
-
-private class MessageContent(message: ChatMessage) : JBTextArea() {
-
-    /** Current wrap width in device px; driven by the visible viewport width. */
-    var wrapWidthPx: Int = JBUI.scale(ChatUIConstants.MessageBubble.CONTENT_WRAP_WIDTH)
-
-    init {
-        text = message.content
-        font = JBFont.regular()
-        alignmentX = LEFT_ALIGNMENT
-
-        isEditable = false
-        isFocusable = false
-        isOpaque = false
-        lineWrap = true
-        wrapStyleWord = true
-        border = null
-
-        size = Dimension(wrapWidthPx, Short.MAX_VALUE.toInt())
-    }
-
-    override fun getPreferredSize(): Dimension {
-        size = Dimension(wrapWidthPx, Short.MAX_VALUE.toInt())
-        return Dimension(wrapWidthPx, super.getPreferredSize().height)
-    }
-
-    override fun getMaximumSize(): Dimension = preferredSize
 }
 
 private class TimeStampLabel(message: ChatMessage) : JPanel() {
