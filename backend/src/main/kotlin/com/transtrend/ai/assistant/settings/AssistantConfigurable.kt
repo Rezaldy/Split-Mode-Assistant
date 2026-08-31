@@ -31,9 +31,20 @@ class AssistantConfigurable(private val project: Project) : Configurable {
     private val baseUrlField = JBTextField(30)
     private val useProxyCheckbox = JBCheckBox(ModularPluginBackendBundle.message("settings.use.proxy"))
     private val indexingCheckbox = JBCheckBox(ModularPluginBackendBundle.message("settings.index.enable"))
+    private val embeddingUrlField = JBTextField(30)
     private val embeddingModelCombo = ComboBox<String>().apply { isEditable = true }
+    private val rebuildButton = JButton(ModularPluginBackendBundle.message("settings.index.rebuild"))
     private val statusLabel = JBLabel()
     private var statusTimer: Timer? = null
+
+    /** Index controls only mean something while indexing is on — grey them out otherwise. */
+    private fun updateIndexControlsEnabled() {
+        val settings = AssistantSettings.getInstance()
+        val indexingOn = indexingCheckbox.isSelected
+        embeddingUrlField.isEnabled = indexingOn && settings.embeddingBaseUrlEnvOverride == null
+        embeddingModelCombo.isEnabled = indexingOn && settings.embeddingModelEnvOverride == null
+        rebuildButton.isEnabled = indexingOn
+    }
 
     override fun getDisplayName(): String =
         ModularPluginBackendBundle.message("settings.display.name")
@@ -45,16 +56,15 @@ class AssistantConfigurable(private val project: Project) : Configurable {
         baseUrlField.isEnabled = envUrl == null
 
         val envEmbed = settings.embeddingModelEnvOverride
-        embeddingModelCombo.isEnabled = envEmbed == null
         populateEmbeddingCandidates()
 
-        val rebuildButton = JButton(ModularPluginBackendBundle.message("settings.index.rebuild")).apply {
-            addActionListener { ProjectIndexService.getInstance(project).rebuild() }
-        }
+        rebuildButton.addActionListener { ProjectIndexService.getInstance(project).rebuild() }
+        indexingCheckbox.addItemListener { updateIndexControlsEnabled() }
         statusLabel.font = JBFont.small()
         statusTimer = Timer(500) { updateStatusLabel() }.also { it.start() }
 
         val builder = FormBuilder.createFormBuilder()
+            .addComponent(TitledSeparator(ModularPluginBackendBundle.message("settings.source.title")))
             .addLabeledComponent(ModularPluginBackendBundle.message("settings.base.url"), baseUrlField)
         if (envUrl != null) {
             builder.addComponentToRightColumn(hintLabel(
@@ -67,12 +77,28 @@ class AssistantConfigurable(private val project: Project) : Configurable {
             .addComponentToRightColumn(hintLabel(
                 ModularPluginBackendBundle.message("settings.use.proxy.hint")))
 
+        val envEmbedUrl = settings.embeddingBaseUrlEnvOverride
+        embeddingUrlField.emptyText.text =
+            ModularPluginBackendBundle.message("settings.index.url.placeholder")
+        embeddingUrlField.isEnabled = envEmbedUrl == null
+
         builder.addComponent(TitledSeparator(ModularPluginBackendBundle.message("settings.index.title")))
             .addComponent(indexingCheckbox)
             .addLabeledComponent(
-                ModularPluginBackendBundle.message("settings.index.model"),
-                embeddingModelCombo,
+                ModularPluginBackendBundle.message("settings.index.url"),
+                embeddingUrlField,
             )
+        if (envEmbedUrl != null) {
+            builder.addComponentToRightColumn(hintLabel(
+                ModularPluginBackendBundle.message("settings.index.url.env", envEmbedUrl)))
+        } else {
+            builder.addComponentToRightColumn(hintLabel(
+                ModularPluginBackendBundle.message("settings.index.url.hint")))
+        }
+        builder.addLabeledComponent(
+            ModularPluginBackendBundle.message("settings.index.model"),
+            embeddingModelCombo,
+        )
         if (envEmbed != null) {
             builder.addComponentToRightColumn(hintLabel(
                 ModularPluginBackendBundle.message("settings.index.model.env", envEmbed)))
@@ -90,6 +116,7 @@ class AssistantConfigurable(private val project: Project) : Configurable {
         return builder.addComponentFillVertically(JPanel(), 0).panel.also {
             panel = it
             reset()
+            updateIndexControlsEnabled()
             updateStatusLabel()
         }
     }
@@ -133,6 +160,7 @@ class AssistantConfigurable(private val project: Project) : Configurable {
         return baseUrlField.text.trim().trimEnd('/') != settings.storedBaseUrl ||
             useProxyCheckbox.isSelected != settings.useProxy ||
             indexingCheckbox.isSelected != settings.indexingEnabled ||
+            embeddingUrlField.text.trim().trimEnd('/') != settings.storedEmbeddingBaseUrl ||
             comboText() != settings.storedEmbeddingModel
     }
 
@@ -144,13 +172,15 @@ class AssistantConfigurable(private val project: Project) : Configurable {
 
         val wasEnabled = settings.indexingEnabled
         val modelChanged = comboText() != settings.storedEmbeddingModel
+        val embedUrlChanged = embeddingUrlField.text.trim().trimEnd('/') != settings.storedEmbeddingBaseUrl
         settings.indexingEnabled = indexingCheckbox.isSelected
         settings.storedEmbeddingModel = comboText()
+        settings.storedEmbeddingBaseUrl = embeddingUrlField.text
 
         val indexService = ProjectIndexService.getInstance(project)
         when {
             wasEnabled != settings.indexingEnabled -> indexService.onIndexingToggled(settings.indexingEnabled)
-            settings.indexingEnabled && modelChanged -> indexService.rebuild()
+            settings.indexingEnabled && (modelChanged || embedUrlChanged) -> indexService.rebuild()
         }
     }
 
@@ -159,6 +189,7 @@ class AssistantConfigurable(private val project: Project) : Configurable {
         baseUrlField.text = settings.storedBaseUrl
         useProxyCheckbox.isSelected = settings.useProxy
         indexingCheckbox.isSelected = settings.indexingEnabled
+        embeddingUrlField.text = settings.storedEmbeddingBaseUrl
         embeddingModelCombo.editor.item = settings.storedEmbeddingModel
     }
 

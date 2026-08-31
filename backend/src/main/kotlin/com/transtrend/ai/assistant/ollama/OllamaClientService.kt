@@ -19,11 +19,24 @@ class OllamaClientService {
     @Volatile
     private var cached: OllamaClient? = null
 
+    @Volatile
+    private var cachedEmbedding: OllamaClient? = null
+
     fun client(): OllamaClient {
         val settings = AssistantSettings.getInstance()
         val baseUrl = settings.effectiveBaseUrl
         val useProxy = settings.useProxy
         cached?.takeIf { it.baseUrl == baseUrl && it.useProxy == useProxy }?.let { return it }
         return OllamaClient(baseUrl, useProxy).also { cached = it }
+    }
+
+    /** Client for embedding traffic; may target a different Ollama instance than chat. */
+    fun embeddingClient(): OllamaClient {
+        val settings = AssistantSettings.getInstance()
+        val baseUrl = settings.effectiveEmbeddingBaseUrl
+        if (baseUrl == settings.effectiveBaseUrl) return client()
+        val useProxy = settings.useProxy
+        cachedEmbedding?.takeIf { it.baseUrl == baseUrl && it.useProxy == useProxy }?.let { return it }
+        return OllamaClient(baseUrl, useProxy).also { cachedEmbedding = it }
     }
 }

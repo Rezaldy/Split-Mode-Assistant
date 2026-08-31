@@ -199,7 +199,7 @@ class ProjectIndexService(private val project: Project, private val scope: Corou
 
         // Cross-file batching: chunks queue up across files and are embedded 16 at a time,
         // so many small files don't degenerate into one HTTP call each.
-        val client = OllamaClientService.getInstance().client()
+        val client = OllamaClientService.getInstance().embeddingClient()
         val pendingTexts = mutableListOf<String>()
         val pendingTargets = mutableListOf<PendingFile>()
         val incomplete = LinkedHashMap<String, PendingFile>()
@@ -346,7 +346,7 @@ class ProjectIndexService(private val project: Project, private val scope: Corou
         val updated = LinkedHashMap(entries)
         removed.forEach { updated.remove(it) }
 
-        val client = OllamaClientService.getInstance().client()
+        val client = OllamaClientService.getInstance().embeddingClient()
         val fileSystem = LocalFileSystem.getInstance()
         for (path in dirty) {
             val file = fileSystem.findFileByPath(path) ?: continue
