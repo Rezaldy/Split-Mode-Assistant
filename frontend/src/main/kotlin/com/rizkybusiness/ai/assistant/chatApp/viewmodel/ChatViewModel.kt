@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.*
 import com.rizkybusiness.ai.assistant.ChatMessage
 import com.rizkybusiness.ai.assistant.ContextFileDto
 import com.rizkybusiness.ai.assistant.FileRefDto
+import com.rizkybusiness.ai.assistant.IndexStatusDto
 import com.rizkybusiness.ai.assistant.ModelsStateDto
 
 interface ChatViewModelApi : Disposable {
@@ -18,6 +19,10 @@ interface ChatViewModelApi : Disposable {
     fun onModelSelected(name: String)
 
     fun onRefreshModels()
+
+    val indexStatusFlow: StateFlow<IndexStatusDto>
+
+    fun onRebuildIndex()
 
     /** Results for the `@` mention popup; empty list hides it. */
     val mentionResultsFlow: StateFlow<List<FileRefDto>>
@@ -39,7 +44,8 @@ interface ChatViewModelApi : Disposable {
 class ChatViewModel(
     private val coroutineScope: CoroutineScope,
     private val repository: ChatRepositoryApi,
-    private val modelsModel: FrontendModelsModel = FrontendModelsModel.getInstance()
+    private val modelsModel: FrontendModelsModel = FrontendModelsModel.getInstance(),
+    private val indexModel: FrontendIndexModel? = null,
 ) : ChatViewModelApi {
 
     private val _chatMessagesFlow = MutableStateFlow(emptyList<ChatMessage>())
@@ -49,6 +55,15 @@ class ChatViewModel(
     override val contextFilesFlow: StateFlow<List<ContextFileDto>> = repository.contextFilesFlow
 
     override val modelsStateFlow: StateFlow<ModelsStateDto> = modelsModel.stateFlow
+
+    override val indexStatusFlow: StateFlow<IndexStatusDto> =
+        indexModel?.statusFlow ?: MutableStateFlow(IndexStatusDto()).asStateFlow()
+
+    override fun onRebuildIndex() {
+        coroutineScope.launch {
+            indexModel?.rebuild()
+        }
+    }
 
     override fun onModelSelected(name: String) {
         coroutineScope.launch {

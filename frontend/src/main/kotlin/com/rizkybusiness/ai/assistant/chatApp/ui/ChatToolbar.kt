@@ -1,6 +1,7 @@
 package com.rizkybusiness.ai.assistant.chatApp.ui
 
 import com.intellij.util.ui.JBUI
+import com.rizkybusiness.ai.assistant.IndexStatusDto
 import com.rizkybusiness.ai.assistant.ModelsStateDto
 import com.rizkybusiness.ai.assistant.ModularPluginFrontendBundle
 import com.rizkybusiness.ai.assistant.chatApp.ui.utils.ChatAppColors
@@ -36,6 +37,7 @@ class ChatToolbar(private val viewModel: ChatViewModel) : JPanel() {
             onToggleSearch = { visible -> toggleSearch(visible) },
             onModelSelected = { name -> viewModel.onModelSelected(name) },
             onRefreshModels = { viewModel.onRefreshModels() },
+            onRebuildIndex = { viewModel.onRebuildIndex() },
         )
 
         searchBar = ChatSearchBar(
@@ -70,6 +72,10 @@ class ChatToolbar(private val viewModel: ChatViewModel) : JPanel() {
 
     fun updateModels(state: ModelsStateDto) {
         headerPanel.updateModels(state)
+    }
+
+    fun updateIndexStatus(status: IndexStatusDto) {
+        headerPanel.updateIndexStatus(status)
     }
 }
 
