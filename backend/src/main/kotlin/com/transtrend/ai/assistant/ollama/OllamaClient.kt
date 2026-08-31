@@ -134,7 +134,9 @@ class OllamaClient(val baseUrl: String) {
         return if (status == 404 && model != null && detail != null && "not found" in detail) {
             OllamaException(ModularPluginBackendBundle.message("error.model.not.found", model, baseUrl))
         } else {
-            OllamaException(ModularPluginBackendBundle.message("error.generic", detail ?: "HTTP $status"))
+            OllamaException(
+                ModularPluginBackendBundle.message("error.generic.at", detail ?: "HTTP $status", baseUrl)
+            )
         }
     }
 }
