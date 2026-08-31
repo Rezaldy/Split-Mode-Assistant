@@ -33,6 +33,7 @@ class AssistantConfigurable(private val project: Project) : Configurable {
     private var panel: JPanel? = null
     private val baseUrlField = JBTextField(30)
     private val useProxyCheckbox = JBCheckBox(ModularPluginBackendBundle.message("settings.use.proxy"))
+    private val contextTokensField = JBTextField(8)
     private val customEmbedUrlCheckbox =
         JBCheckBox(ModularPluginBackendBundle.message("settings.index.custom.url"))
     private val embeddingUrlField = JBTextField(30)
@@ -86,6 +87,10 @@ class AssistantConfigurable(private val project: Project) : Configurable {
         }
         builder.addComponentToRightColumn(hintLabel(
             ModularPluginBackendBundle.message("settings.env.override.hint")))
+        builder.addLabeledComponent(
+            ModularPluginBackendBundle.message("settings.context.tokens"), contextTokensField)
+            .addComponentToRightColumn(hintLabel(
+                ModularPluginBackendBundle.message("settings.context.tokens.hint")))
         builder.addComponent(useProxyCheckbox)
             .addComponentToRightColumn(hintLabel(
                 ModularPluginBackendBundle.message("settings.use.proxy.hint")))
@@ -170,6 +175,7 @@ class AssistantConfigurable(private val project: Project) : Configurable {
     override fun isModified(): Boolean {
         val settings = AssistantSettings.getInstance()
         return baseUrlField.text.trim().trimEnd('/') != settings.storedBaseUrl ||
+            (contextTokensField.text.trim().toIntOrNull() ?: settings.contextTokens) != settings.contextTokens ||
             useProxyCheckbox.isSelected != settings.useProxy ||
             indexingCheckbox.isSelected != settings.indexingEnabled ||
             uiEmbeddingUrl() != settings.storedEmbeddingBaseUrl ||
@@ -179,6 +185,8 @@ class AssistantConfigurable(private val project: Project) : Configurable {
     override fun apply() {
         val settings = AssistantSettings.getInstance()
         settings.storedBaseUrl = baseUrlField.text
+        contextTokensField.text.trim().toIntOrNull()?.let { settings.contextTokens = it }
+        contextTokensField.text = settings.contextTokens.toString()
         settings.useProxy = useProxyCheckbox.isSelected
         BackendModelsService.getInstance().refreshAsync()
 
@@ -199,6 +207,7 @@ class AssistantConfigurable(private val project: Project) : Configurable {
     override fun reset() {
         val settings = AssistantSettings.getInstance()
         baseUrlField.text = settings.storedBaseUrl
+        contextTokensField.text = settings.contextTokens.toString()
         useProxyCheckbox.isSelected = settings.useProxy
         indexingCheckbox.isSelected = settings.indexingEnabled
         rebuildButton.isEnabled = settings.indexingEnabled

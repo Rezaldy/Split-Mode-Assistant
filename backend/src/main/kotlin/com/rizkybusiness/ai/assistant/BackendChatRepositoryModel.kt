@@ -8,6 +8,7 @@ import com.rizkybusiness.ai.assistant.ollama.OllamaChatMessage
 import com.rizkybusiness.ai.assistant.ollama.OllamaClientService
 import com.rizkybusiness.ai.assistant.ollama.OllamaException
 import com.rizkybusiness.ai.assistant.repository.ChatMessageFactory
+import com.rizkybusiness.ai.assistant.settings.AssistantSettings
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.diagnostic.thisLogger
 import com.intellij.openapi.project.Project
@@ -81,13 +82,26 @@ class BackendChatRepositoryModel(private val project: Project) {
         val streamedMessage = chatMessageFactory.createAIMessage("")
         val content = StringBuilder()
         var lastFlush = 0L
-        OllamaClientService.getInstance().client().chatStream(model, requestMessages).collect { token ->
-            content.append(token)
-            val now = System.currentTimeMillis()
-            if (now - lastFlush >= STREAM_FLUSH_INTERVAL_MS) {
-                lastFlush = now
-                upsertAssistantMessage(streamedMessage.copy(content = content.toString()))
+        var truncatedByLimit = false
+        OllamaClientService.getInstance().client()
+            .chatStream(
+                model,
+                requestMessages,
+                contextTokens = AssistantSettings.getInstance().contextTokens,
+                onDone = { reason -> truncatedByLimit = reason == "length" },
+            )
+            .collect { token ->
+                content.append(token)
+                val now = System.currentTimeMillis()
+                if (now - lastFlush >= STREAM_FLUSH_INTERVAL_MS) {
+                    lastFlush = now
+                    upsertAssistantMessage(streamedMessage.copy(content = content.toString()))
+                }
             }
+        if (truncatedByLimit) {
+            content.append("\n\n*")
+                .append(ModularPluginBackendBundle.message("chat.truncated"))
+                .append("*")
         }
         upsertAssistantMessage(streamedMessage.copy(content = content.toString()))
     }

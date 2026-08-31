@@ -23,6 +23,7 @@ class AssistantSettings : PersistentStateComponent<AssistantSettings.State> {
         var embeddingModel: String = ""
         var embeddingBaseUrl: String = ""
         var useProxy: Boolean = false
+        var contextTokens: Int = DEFAULT_CONTEXT_TOKENS
     }
 
     private var state = State()
@@ -35,6 +36,11 @@ class AssistantSettings : PersistentStateComponent<AssistantSettings.State> {
 
     companion object {
         const val DEFAULT_BASE_URL = "http://localhost:11434"
+
+        // Ollama's own default num_ctx is tiny (~4k): large prompts silently truncate
+        // replies. 16k fits our 24k-char context budget + history + a long answer.
+        const val DEFAULT_CONTEXT_TOKENS = 16_384
+        const val MIN_CONTEXT_TOKENS = 2_048
 
         fun getInstance(): AssistantSettings =
             ApplicationManager.getApplication().getService(AssistantSettings::class.java)
@@ -64,6 +70,13 @@ class AssistantSettings : PersistentStateComponent<AssistantSettings.State> {
         get() = state.indexingEnabled
         set(value) {
             state.indexingEnabled = value
+        }
+
+    /** Context window (num_ctx) sent with every chat request; clamped to a sane minimum. */
+    var contextTokens: Int
+        get() = state.contextTokens.coerceAtLeast(MIN_CONTEXT_TOKENS)
+        set(value) {
+            state.contextTokens = value.coerceAtLeast(MIN_CONTEXT_TOKENS)
         }
 
     /** Off = direct connection (default); on = honor the IDE's HTTP proxy configuration. */
