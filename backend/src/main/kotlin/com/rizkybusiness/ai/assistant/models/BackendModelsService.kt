@@ -104,6 +104,18 @@ class BackendModelsService(private val scope: CoroutineScope) {
     /** Embedding-capable candidates from the already-discovered list (no network call). */
     fun embeddingCandidatesFromCache(): List<String> =
         state.value.models.filter { name -> EMBED_NAME_HINTS.any { it in name.lowercase() } }
+
+    private val thinkingSupport = java.util.concurrent.ConcurrentHashMap<String, Boolean>()
+
+    /** Whether [model] advertises the "thinking" capability; probed once per model, cached. */
+    suspend fun supportsThinking(model: String): Boolean {
+        thinkingSupport[model]?.let { return it }
+        val supports = runCatching {
+            OllamaClientService.getInstance().client().modelCapabilities(model)
+        }.getOrDefault(emptyList()).contains("thinking")
+        thinkingSupport[model] = supports
+        return supports
+    }
 }
 
 class BackendModelsApi : ModelsApi {

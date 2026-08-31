@@ -22,7 +22,14 @@ import java.time.Duration
 class OllamaException(message: String, cause: Throwable? = null) : RuntimeException(message, cause)
 
 @Serializable
-data class OllamaChatMessage(val role: String, val content: String)
+data class OllamaChatMessage(
+    val role: String,
+    val content: String,
+    val thinking: String? = null,
+)
+
+/** One streamed token: either reply content or the model's reasoning. */
+data class OllamaStreamToken(val text: String, val isThinking: Boolean)
 
 @Serializable
 internal data class OllamaChatOptions(
@@ -36,7 +43,14 @@ internal data class OllamaChatRequest(
     val messages: List<OllamaChatMessage>,
     val stream: Boolean = true,
     val options: OllamaChatOptions? = null,
+    val think: Boolean? = null,
 )
+
+@Serializable
+internal data class OllamaShowRequest(val model: String)
+
+@Serializable
+internal data class OllamaShowResponse(val capabilities: List<String> = emptyList())
 
 @Serializable
 internal data class OllamaChatChunk(
@@ -116,15 +130,29 @@ class OllamaClient(val baseUrl: String, val useProxy: Boolean = false) {
      * unlimited; when the model still stops on a limit, [onDone] receives the server's
      * `done_reason` (e.g. "length") so callers can tell the user instead of hiding it.
      */
+    /** Capabilities from `/api/show` (e.g. "thinking", "tools"); empty when the call fails. */
+    suspend fun modelCapabilities(model: String): List<String> = withContext(Dispatchers.IO) {
+        val body = json.encodeToString(OllamaShowRequest.serializer(), OllamaShowRequest(model))
+        val request = HttpRequest.newBuilder(URI.create("$baseUrl/api/show"))
+            .header("Content-Type", "application/json")
+            .POST(HttpRequest.BodyPublishers.ofString(body))
+            .build()
+        val response = mapConnectErrors { http.send(request, HttpResponse.BodyHandlers.ofString()) }
+        if (response.statusCode() != 200) return@withContext emptyList()
+        json.decodeFromString<OllamaShowResponse>(response.body()).capabilities
+    }
+
     fun chatStream(
         model: String,
         messages: List<OllamaChatMessage>,
         contextTokens: Int? = null,
+        requestThinking: Boolean = false,
         onDone: (String?) -> Unit = {},
-    ): Flow<String> = flow {
+    ): Flow<OllamaStreamToken> = flow {
         val request0 = OllamaChatRequest(
             model, messages,
             options = OllamaChatOptions(numCtx = contextTokens, numPredict = -1),
+            think = if (requestThinking) true else null,
         )
         val body = json.encodeToString(OllamaChatRequest.serializer(), request0)
         val request = HttpRequest.newBuilder(URI.create("$baseUrl/api/chat"))
@@ -143,7 +171,12 @@ class OllamaClient(val baseUrl: String, val useProxy: Boolean = false) {
                 chunk.error?.let {
                     throw OllamaException(ModularPluginBackendBundle.message("error.stream.aborted", it))
                 }
-                chunk.message?.content?.takeIf { it.isNotEmpty() }?.let { emit(it) }
+                chunk.message?.thinking?.takeIf { it.isNotEmpty() }?.let {
+                    emit(OllamaStreamToken(it, isThinking = true))
+                }
+                chunk.message?.content?.takeIf { it.isNotEmpty() }?.let {
+                    emit(OllamaStreamToken(it, isThinking = false))
+                }
                 if (chunk.done) {
                     onDone(chunk.doneReason)
                     break

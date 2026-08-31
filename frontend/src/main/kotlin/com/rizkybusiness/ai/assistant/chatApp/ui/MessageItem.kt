@@ -24,6 +24,7 @@ class MessageBubble(
     private val isMyMessage = message.isMyMessage
     private val isErrorMessage = message.isErrorMessage()
     private var contentArea: MarkdownContent? = null
+    private var thinkingSection: ThinkingSection? = null
     private var currentContent: String = message.content
 
     init {
@@ -34,6 +35,12 @@ class MessageBubble(
 
         when {
             message.isTextMessage() || message.isErrorMessage() -> {
+                if (!message.isMyMessage) {
+                    thinkingSection = ThinkingSection().also {
+                        it.setThinking(message.thinking, answerStarted = message.content.isNotBlank())
+                        add(it)
+                    }
+                }
                 contentArea = MarkdownContent().also {
                     it.setWrapWidth(JBUI.scale(ChatUIConstants.MessageBubble.CONTENT_WRAP_WIDTH))
                     it.setMarkdown(message.content)
@@ -51,6 +58,7 @@ class MessageBubble(
      * must be able to re-render its text after construction.
      */
     fun updateFrom(updated: ChatMessage) {
+        thinkingSection?.setThinking(updated.thinking, answerStarted = updated.content.isNotBlank())
         if (updated.content == currentContent) return
         currentContent = updated.content
         contentArea?.let {
@@ -76,6 +84,7 @@ class MessageBubble(
             JBUI.scale(ChatUIConstants.MessageBubble.CONTENT_WRAP_WIDTH),
         )
         content.setWrapWidth(target)
+        thinkingSection?.setWrapWidth(target)
         revalidate()
         repaint()
     }

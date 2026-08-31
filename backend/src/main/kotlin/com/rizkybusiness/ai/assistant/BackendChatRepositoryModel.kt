@@ -81,21 +81,26 @@ class BackendChatRepositoryModel(private val project: Project) {
 
         val streamedMessage = chatMessageFactory.createAIMessage("")
         val content = StringBuilder()
+        val thinking = StringBuilder()
         var lastFlush = 0L
         var truncatedByLimit = false
+        val requestThinking = BackendModelsService.getInstance().supportsThinking(model)
         OllamaClientService.getInstance().client()
             .chatStream(
                 model,
                 requestMessages,
                 contextTokens = AssistantSettings.getInstance().contextTokens,
+                requestThinking = requestThinking,
                 onDone = { reason -> truncatedByLimit = reason == "length" },
             )
             .collect { token ->
-                content.append(token)
+                if (token.isThinking) thinking.append(token.text) else content.append(token.text)
                 val now = System.currentTimeMillis()
                 if (now - lastFlush >= STREAM_FLUSH_INTERVAL_MS) {
                     lastFlush = now
-                    upsertAssistantMessage(streamedMessage.copy(content = content.toString()))
+                    upsertAssistantMessage(
+                        streamedMessage.copy(content = content.toString(), thinking = thinking.toString())
+                    )
                 }
             }
         if (truncatedByLimit) {
@@ -103,7 +108,9 @@ class BackendChatRepositoryModel(private val project: Project) {
                 .append(ModularPluginBackendBundle.message("chat.truncated"))
                 .append("*")
         }
-        upsertAssistantMessage(streamedMessage.copy(content = content.toString()))
+        upsertAssistantMessage(
+            streamedMessage.copy(content = content.toString(), thinking = thinking.toString())
+        )
     }
 
     /** History (text messages only) prefixed by a system message carrying the project context. */

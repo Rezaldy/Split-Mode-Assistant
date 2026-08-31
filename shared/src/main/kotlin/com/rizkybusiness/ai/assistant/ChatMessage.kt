@@ -14,7 +14,9 @@ data class ChatMessage(
     val author: String,
     val isMyMessage: Boolean = false,
     val timestamp: LocalDateTime = LocalDateTime.now(),
-    val type: ChatMessageType = TEXT
+    val type: ChatMessageType = TEXT,
+    /** The model's reasoning stream, when the model exposes one; never sent back as history. */
+    val thinking: String = ""
 ) : Searchable {
 
     enum class ChatMessageType {
