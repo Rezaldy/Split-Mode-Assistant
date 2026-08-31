@@ -79,12 +79,20 @@ Maintained by the code-recon skill.
 
 - **RD client caches the plugin BY VERSION** — in real Remote Development
   the JetBrains Client holds its own plugin copy; ship a changed RPC
-  contract under an unchanged version and the client/host skew fails
-  silently (changed methods hang, unchanged ones work, no log errors
-  anywhere — observed 2026-08-31 as "context bar works, chat bubbles
-  never appear"). Rule now in CLAUDE.md: version bump in the same PR as
-  any @Rpc/DTO change. Users must uninstall from BOTH host and client
-  plugin lists when in doubt. (verified 2026-08-31)
+  contract under an unchanged version and client/host skew can fail
+  silently. Rule in CLAUDE.md: version bump in the same PR as any
+  @Rpc/DTO change; uninstall from BOTH host and client lists when in
+  doubt. (NOTE: the 2026-08-31 "invisible bubbles" incident originally
+  blamed on this turned out to be the fixed-width-bubble layout bug
+  below — the rule stays because the risk is real.) (verified 2026-08-31)
+- **Bubbles must wrap to the viewport width** — MessageContent had a
+  FIXED wrap width (~420px scaled); in a tool window narrower than that,
+  GridBag (anchor EAST/WEST, no horizontal scrollbar) lays bubbles
+  outside the visible area → chat looks completely empty while header,
+  context bar, and input work. Fix: `ChatList.applyAvailableWidth` feeds
+  viewport width to `MessageBubble.updateAvailableWidth`. Symptom to
+  remember: "no chat bubbles but everything else fine" = check window
+  width FIRST. (verified 2026-08-31)
 - **ChatList renders by message id** — bubbles are created for new ids and
   removed for vanished ids; content changes to an EXISTING id must go
   through `MessageBubble.updateFrom` (added for M1 streaming — the template
