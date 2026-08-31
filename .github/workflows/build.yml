@@ -1,0 +1,45 @@
+name: Build plugin
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Platform toolchain requires Java 21 (see codemap gotcha).
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Build, test, package
+        run: ./gradlew build buildPlugin
+
+      - name: Upload plugin zip (every build)
+        uses: actions/upload-artifact@v4
+        with:
+          name: split-mode-assistant
+          path: build/distributions/*.zip
+          if-no-files-found: error
+
+      - name: Publish GitHub Release (tags only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >
+          gh release create "${{ github.ref_name }}"
+          build/distributions/*.zip
+          --title "Split Mode Assistant ${{ github.ref_name }}"
+          --generate-notes
