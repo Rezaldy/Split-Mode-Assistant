@@ -20,8 +20,10 @@ class OllamaClientService {
     private var cached: OllamaClient? = null
 
     fun client(): OllamaClient {
-        val baseUrl = AssistantSettings.getInstance().effectiveBaseUrl
-        cached?.takeIf { it.baseUrl == baseUrl }?.let { return it }
-        return OllamaClient(baseUrl).also { cached = it }
+        val settings = AssistantSettings.getInstance()
+        val baseUrl = settings.effectiveBaseUrl
+        val useProxy = settings.useProxy
+        cached?.takeIf { it.baseUrl == baseUrl && it.useProxy == useProxy }?.let { return it }
+        return OllamaClient(baseUrl, useProxy).also { cached = it }
     }
 }
