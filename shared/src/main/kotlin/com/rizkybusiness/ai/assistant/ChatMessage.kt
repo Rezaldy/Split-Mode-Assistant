@@ -16,7 +16,16 @@ data class ChatMessage(
     val timestamp: LocalDateTime = LocalDateTime.now(),
     val type: ChatMessageType = TEXT,
     /** The model's reasoning stream, when the model exposes one; never sent back as history. */
-    val thinking: String = ""
+    val thinking: String = "",
+    /**
+     * Token usage reported by the model source for the request that produced this message
+     * (assistant messages only; 0 = unknown). [promptTokens] excludes server-side
+     * KV-cache hits, so prompt+reply is a lower bound on context-window usage.
+     */
+    val promptTokens: Int = 0,
+    val replyTokens: Int = 0,
+    /** The num_ctx the request was sent with; 0 = unknown. */
+    val contextLimit: Int = 0,
 ) : Searchable {
 
     enum class ChatMessageType {

@@ -32,6 +32,17 @@ data class OllamaChatMessage(
 /** One streamed token: either reply content or the model's reasoning. */
 data class OllamaStreamToken(val text: String, val isThinking: Boolean)
 
+/**
+ * End-of-stream metrics from the final `done:true` chunk. [promptTokens] counts only the
+ * prompt tokens evaluated for THIS request — a server-side KV-cache hit on a repeated
+ * prefix makes it undercount the true prompt size, so treat usage as a lower bound.
+ */
+data class OllamaDoneStats(
+    val reason: String?,
+    val promptTokens: Int,
+    val replyTokens: Int,
+)
+
 @Serializable
 internal data class OllamaChatOptions(
     @SerialName("num_ctx") val numCtx: Int? = null,
@@ -58,6 +69,8 @@ internal data class OllamaChatChunk(
     val message: OllamaChatMessage? = null,
     val done: Boolean = false,
     @SerialName("done_reason") val doneReason: String? = null,
+    @SerialName("prompt_eval_count") val promptEvalCount: Int? = null,
+    @SerialName("eval_count") val evalCount: Int? = null,
     val error: String? = null,
 )
 
@@ -129,7 +142,8 @@ class OllamaClient(val baseUrl: String, val useProxy: Boolean = false) {
      * [contextTokens] overrides Ollama's small default `num_ctx` — without it, large
      * prompts (project context!) silently truncate replies. `num_predict` is pinned to
      * unlimited; when the model still stops on a limit, [onDone] receives the server's
-     * `done_reason` (e.g. "length") so callers can tell the user instead of hiding it.
+     * `done_reason` (e.g. "length") plus token counts so callers can tell the user
+     * instead of hiding it.
      */
     /** Capabilities from `/api/show` (e.g. "thinking", "tools"); empty when the call fails. */
     suspend fun modelCapabilities(model: String): List<String> = withContext(Dispatchers.IO) {
@@ -148,7 +162,7 @@ class OllamaClient(val baseUrl: String, val useProxy: Boolean = false) {
         messages: List<OllamaChatMessage>,
         contextTokens: Int? = null,
         requestThinking: Boolean = false,
-        onDone: (String?) -> Unit = {},
+        onDone: (OllamaDoneStats) -> Unit = {},
     ): Flow<OllamaStreamToken> = flow {
         val request0 = OllamaChatRequest(
             model, messages,
@@ -183,7 +197,19 @@ class OllamaClient(val baseUrl: String, val useProxy: Boolean = false) {
                 }
                 if (chunk.done) {
                     sawDone = true
-                    onDone(chunk.doneReason)
+                    val stats = OllamaDoneStats(
+                        reason = chunk.doneReason,
+                        promptTokens = chunk.promptEvalCount ?: 0,
+                        replyTokens = chunk.evalCount ?: 0,
+                    )
+                    // Every stream end is logged: cut-off reports keep coming in with no
+                    // visible error, and this line is what tells apart "model stopped"
+                    // from "limit hit" after the fact (host idea.log).
+                    thisLogger().info(
+                        "Chat stream done: model='$model' reason=${stats.reason} " +
+                            "prompt=${stats.promptTokens} reply=${stats.replyTokens} num_ctx=$contextTokens"
+                    )
+                    onDone(stats)
                     break
                 }
             }

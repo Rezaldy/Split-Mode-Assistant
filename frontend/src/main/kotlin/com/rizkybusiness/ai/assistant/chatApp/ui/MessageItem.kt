@@ -27,6 +27,7 @@ class MessageBubble(
     private val isErrorMessage = message.isErrorMessage()
     private var contentArea: MarkdownContent? = null
     private var thinkingSection: ThinkingSection? = null
+    private var timeStampRow: TimeStampLabel? = null
     private var currentContent: String = message.content
 
     init {
@@ -49,7 +50,7 @@ class MessageBubble(
                     add(it)
                 }
                 add(Box.createVerticalStrut(JBUI.scale(ChatUIConstants.Spacing.NORMAL)))
-                add(TimeStampLabel(message))
+                timeStampRow = TimeStampLabel(message).also { add(it) }
             }
             message.isAIThinkingMessage() -> add(ThinkingIndicator())
         }
@@ -61,6 +62,7 @@ class MessageBubble(
      */
     fun updateFrom(updated: ChatMessage) {
         thinkingSection?.setThinking(updated.thinking, answerStarted = updated.content.isNotBlank())
+        timeStampRow?.refresh(updated)
         if (updated.content == currentContent) return
         currentContent = updated.content
         contentArea?.let {
@@ -179,16 +181,53 @@ private class AuthorName(message: ChatMessage) : JBLabel() {
 }
 
 private class TimeStampLabel(message: ChatMessage) : JPanel() {
+    private val usageLabel = JBLabel().apply {
+        font = JBFont.small()
+        foreground = ChatAppColors.Text.timestamp
+        toolTipText = ModularPluginFrontendBundle.message("chat.tokens.tooltip")
+        isVisible = false
+    }
+
     init {
         layout = BoxLayout(this, BoxLayout.X_AXIS)
         isOpaque = false
         alignmentX = LEFT_ALIGNMENT
 
-        val label = JBLabel(message.formattedTime()).apply {
+        add(usageLabel)
+        add(Box.createHorizontalGlue())
+        add(JBLabel(message.formattedTime()).apply {
             font = JBFont.small()
             foreground = ChatAppColors.Text.timestamp
+        })
+        refresh(message)
+    }
+
+    /** Token counts arrive only with the final stream update, so the row must re-render. */
+    fun refresh(message: ChatMessage) {
+        val usage = tokenUsageText(message)
+        usageLabel.text = usage.orEmpty()
+        usageLabel.isVisible = usage != null
+    }
+
+    /** "9,812 in · 2,411 out · 74% of 16,384" — null when the source reported no counts. */
+    private fun tokenUsageText(message: ChatMessage): String? {
+        if (message.promptTokens <= 0 && message.replyTokens <= 0) return null
+        val used = message.promptTokens + message.replyTokens
+        return if (message.contextLimit > 0) {
+            val percent = used * 100 / message.contextLimit
+            ModularPluginFrontendBundle.message(
+                "chat.tokens.with.limit",
+                "%,d".format(message.promptTokens),
+                "%,d".format(message.replyTokens),
+                percent,
+                "%,d".format(message.contextLimit),
+            )
+        } else {
+            ModularPluginFrontendBundle.message(
+                "chat.tokens",
+                "%,d".format(message.promptTokens),
+                "%,d".format(message.replyTokens),
+            )
         }
-        add(Box.createHorizontalGlue())
-        add(label)
     }
 }
