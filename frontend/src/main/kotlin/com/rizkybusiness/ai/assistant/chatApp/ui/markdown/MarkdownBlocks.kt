@@ -1,52 +1,39 @@
 package com.rizkybusiness.ai.assistant.chatApp.ui.markdown
 
+import org.intellij.markdown.flavours.gfm.GFMFlavourDescriptor
+import org.intellij.markdown.html.HtmlGenerator
+import org.intellij.markdown.parser.MarkdownParser
+
 /**
- * Pragmatic markdown subset for chat rendering: fenced code blocks (with language tag),
- * inline code, bold, italic, links, hash headers and dash/star/numbered lists. Pure Kotlin on
- * purpose — unit-testable, and all HTML escaping lives here in one place.
- *
- * Streaming-friendly: an unclosed fence at the end of the text is treated as a code
- * block in progress, so highlighting appears while the model is still typing it.
+ * Markdown for chat rendering. Fenced code blocks are split out by our own line scanner
+ * (streaming-proven: an unclosed fence renders as a code block in progress); everything
+ * between fences goes through the platform-bundled intellij-markdown library with the
+ * GFM flavour — full CommonMark + tables, strikethrough, task lists, nested structures.
+ * No hand-rolled subset, no extra dependency.
  */
 object MarkdownBlocks {
 
     sealed interface Block {
-        /** Inline-converted HTML (already escaped), without surrounding html/body tags. */
+        /** Rendered HTML fragment (fully escaped by the library). */
         data class Paragraph(val html: String) : Block
 
         data class Code(val language: String?, val text: String) : Block
-
-        /** A complete `<table>…</table>` fragment (cells already inline-converted). */
-        data class Table(val html: String) : Block
     }
+
+    private val flavour = GFMFlavourDescriptor()
 
     fun parse(markdown: String): List<Block> {
         val blocks = mutableListOf<Block>()
-        val paragraphLines = mutableListOf<String>()
-        val tableLines = mutableListOf<String>()
+        val textLines = mutableListOf<String>()
         val codeLines = mutableListOf<String>()
         var inCode = false
         var codeLanguage: String? = null
 
-        fun flushParagraph() {
-            if (paragraphLines.any { it.isNotBlank() }) {
-                blocks += Block.Paragraph(paragraphLines.joinToString("<br>") { lineToHtml(it) })
-            }
-            paragraphLines.clear()
-        }
-
-        fun flushTable() {
-            if (tableLines.isEmpty()) return
-            if (tableLines.size >= 2 && isSeparatorRow(tableLines[1])) {
-                blocks += Block.Table(buildTableHtml(
-                    header = splitCells(tableLines[0]),
-                    rows = tableLines.drop(2).map { splitCells(it) },
-                ))
-            } else {
-                // Not (yet) a valid table — e.g. header row still streaming: plain text.
-                blocks += Block.Paragraph(tableLines.joinToString("<br>") { lineToHtml(it) })
-            }
-            tableLines.clear()
+        fun flushText() {
+            val segment = textLines.joinToString("\n")
+            textLines.clear()
+            if (segment.isBlank()) return
+            blocks += Block.Paragraph(renderGfm(segment))
         }
 
         fun flushCode() {
@@ -62,97 +49,34 @@ object MarkdownBlocks {
                     flushCode()
                     inCode = false
                 } else {
-                    flushParagraph()
-                    flushTable()
+                    flushText()
                     inCode = true
                     codeLanguage = trimmed.removePrefix("```").trim().takeIf { it.isNotBlank() }
                 }
                 continue
             }
-            when {
-                inCode -> codeLines += line
-                trimmed.startsWith("|") -> {
-                    flushParagraph()
-                    tableLines += line
-                }
-                else -> {
-                    flushTable()
-                    paragraphLines += line
-                }
-            }
+            if (inCode) codeLines += line else textLines += line
         }
         // Unclosed fence while streaming: show what we have as code.
-        if (inCode) flushCode() else {
-            flushTable()
-            flushParagraph()
-        }
+        if (inCode) flushCode() else flushText()
         return blocks
     }
 
-    private fun isSeparatorRow(line: String): Boolean {
-        val trimmed = line.trim()
-        if (!trimmed.startsWith("|") || '-' !in trimmed) return false
-        return trimmed.all { it == '|' || it == '-' || it == ':' || it == ' ' }
-    }
-
-    private fun splitCells(line: String): List<String> = line.trim()
-        .removePrefix("|")
-        .removeSuffix("|")
-        .split("|")
-        .map { inlineToHtml(it.trim()) }
-
-    private fun buildTableHtml(header: List<String>, rows: List<List<String>>): String {
-        val html = StringBuilder("<table border=\"1\" cellspacing=\"0\" cellpadding=\"4\">")
-        html.append("<tr>")
-        header.forEach { html.append("<th align=\"left\">").append(it).append("</th>") }
-        html.append("</tr>")
-        for (row in rows) {
-            html.append("<tr>")
-            row.forEach { html.append("<td>").append(it).append("</td>") }
-            html.append("</tr>")
-        }
-        return html.append("</table>").toString()
-    }
-
-    /** One markdown source line → escaped HTML with inline styling applied. */
-    fun lineToHtml(line: String): String {
-        val headerMatch = Regex("^(#{1,3})\\s+(.*)").find(line.trimStart())
-        if (headerMatch != null) {
-            return "<b>" + inlineToHtml(headerMatch.groupValues[2]) + "</b>"
-        }
-        val listMatch = Regex("^(\\s*)[-*]\\s+(.*)").find(line)
-        if (listMatch != null) {
-            return "&nbsp;&nbsp;•&nbsp;" + inlineToHtml(listMatch.groupValues[2])
-        }
-        return inlineToHtml(line)
-    }
-
-    /**
-     * Inline conversion. Backtick spans are honored first so nothing inside them gets
-     * styled; an unbalanced trailing backtick (mid-stream) renders literally.
-     */
-    fun inlineToHtml(text: String): String {
-        val parts = text.split('`')
-        val result = StringBuilder()
-        for ((index, part) in parts.withIndex()) {
-            // Odd indexes sit between backticks; the last one is unclosed when the split
-            // produced an even part count (mid-stream) and then renders literally.
-            val closedCodeSpan = index % 2 == 1 && !(index == parts.lastIndex && parts.size % 2 == 0)
-            when {
-                closedCodeSpan -> result.append("<code>").append(escape(part)).append("</code>")
-                index % 2 == 1 -> result.append(styleText(escape("`$part")))
-                else -> result.append(styleText(escape(part)))
-            }
-        }
-        return result.toString()
-    }
-
-    private fun styleText(escaped: String): String {
-        var html = escaped
-        html = Regex("\\[([^\\]]+)\\]\\((https?://[^)\\s]+)\\)")
-            .replace(html) { "<a href=\"${it.groupValues[2]}\">${it.groupValues[1]}</a>" }
-        html = Regex("\\*\\*(.+?)\\*\\*").replace(html) { "<b>${it.groupValues[1]}</b>" }
-        html = Regex("(?<!\\*)\\*([^*]+)\\*(?!\\*)").replace(html) { "<i>${it.groupValues[1]}</i>" }
+    /** CommonMark+GFM → HTML, post-processed for Swing's HTMLEditorKit quirks. */
+    fun renderGfm(segment: String): String {
+        // CommonMark passes raw HTML through; neutralize tag-like '<' up front so model
+        // output can never inject markup (the parser preserves the entity as literal text).
+        val safe = segment.replace(Regex("<(?=[A-Za-z/!?])"), "&lt;")
+        val tree = MarkdownParser(flavour).buildMarkdownTreeFromString(safe)
+        var html = HtmlGenerator(safe, tree, flavour).generateHtml()
+        html = html.removePrefix("<body>").removeSuffix("</body>")
+        // Swing's HTML support needs explicit table borders (CSS border-collapse is out).
+        html = html.replace("<table>", "<table border=\"1\" cellspacing=\"0\" cellpadding=\"4\">")
+        // Task-list checkboxes would render as live form widgets; show glyphs instead.
+        html = html.replace(Regex("<input[^>]*checked[^>]*>"), "☑ ")
+        html = html.replace(Regex("<input[^>]*>"), "☐ ")
+        // Swing fetches <img> sources on the EDT (remote, blocking) — placeholder instead.
+        html = html.replace(Regex("<img[^>]*>"), "[image]")
         return html
     }
 

@@ -7,20 +7,30 @@ import com.rizkybusiness.ai.assistant.index.VectorMath
 import com.rizkybusiness.ai.assistant.ollama.OllamaClientService
 import com.rizkybusiness.ai.assistant.settings.AssistantSettings
 import com.intellij.openapi.Disposable
+import com.intellij.openapi.application.EDT
 import com.intellij.openapi.application.runReadAction
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.diagnostic.thisLogger
+import com.intellij.openapi.editor.Editor
+import com.intellij.openapi.editor.EditorFactory
+import com.intellij.openapi.editor.EditorKind
+import com.intellij.openapi.editor.event.SelectionEvent
+import com.intellij.openapi.editor.event.SelectionListener
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.fileEditor.FileEditorManager
+import com.intellij.openapi.fileEditor.FileEditorManagerEvent
 import com.intellij.openapi.fileEditor.FileEditorManagerListener
+import com.intellij.openapi.fileEditor.TextEditor
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VfsUtilCore
 import com.intellij.openapi.vfs.VirtualFile
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.withContext
 
 /**
  * Assembles the project-context block sent to the model, under a hard character budget,
@@ -37,12 +47,27 @@ class ProjectContextCollector(private val project: Project) : Disposable {
     companion object {
         const val DEFAULT_BUDGET_CHARS = 24_000
         const val MAX_RETRIEVED_SNIPPET_CHARS = 4_000
+        const val MAX_SELECTION_CHARS = 8_000
         const val SOURCE_OPEN = "open"
         const val SOURCE_RETRIEVED = "retrieved"
+        const val SOURCE_SELECTION = "selection"
         private const val RETRIEVED_BUDGET_SHARE = 0.4
 
         fun getInstance(project: Project): ProjectContextCollector =
             project.getService(ProjectContextCollector::class.java)
+    }
+
+    /** Plain snapshot of the user's editor selection; lines are 1-based and inclusive. */
+    data class SelectionSnapshot(
+        val path: String,
+        val fileName: String,
+        val startLine: Int,
+        val endLine: Int,
+        val text: String,
+    ) {
+        /** Compact display name for the context bar, e.g. `Foo.kt:12-40` or `Foo.kt:7`. */
+        val presentableName: String
+            get() = if (startLine == endLine) "$fileName:$startLine" else "$fileName:$startLine-$endLine"
     }
 
     private val _contextFiles = MutableStateFlow<List<ContextFileDto>>(emptyList())
@@ -53,13 +78,36 @@ class ProjectContextCollector(private val project: Project) : Disposable {
     @Volatile
     private var lastRetrieved: List<ContextFileDto> = emptyList()
 
+    /** Context-bar chip for the current editor selection; maintained from EDT listeners. */
+    @Volatile
+    private var selectionChip: ContextFileDto? = null
+
     init {
         project.messageBus.connect(this).subscribe(
             FileEditorManagerListener.FILE_EDITOR_MANAGER,
             object : FileEditorManagerListener {
                 override fun fileOpened(source: FileEditorManager, file: VirtualFile) = refreshContextFiles()
-                override fun fileClosed(source: FileEditorManager, file: VirtualFile) = refreshContextFiles()
+
+                override fun fileClosed(source: FileEditorManager, file: VirtualFile) {
+                    if (selectionChip?.path == file.path) selectionChip = null
+                    refreshContextFiles()
+                }
+
+                override fun selectionChanged(event: FileEditorManagerEvent) {
+                    updateSelectionChip((event.newEditor as? TextEditor)?.editor)
+                }
             },
+        )
+        // Selection changes don't go through the message bus; the editor multicaster covers
+        // every editor (host-mirrored client editors included in split mode).
+        EditorFactory.getInstance().eventMulticaster.addSelectionListener(
+            object : SelectionListener {
+                override fun selectionChanged(e: SelectionEvent) {
+                    if (e.editor.project != project || e.editor.editorKind != EditorKind.MAIN_EDITOR) return
+                    updateSelectionChip(e.editor)
+                }
+            },
+            this,
         )
         refreshContextFiles()
     }
@@ -72,12 +120,41 @@ class ProjectContextCollector(private val project: Project) : Disposable {
         val retrieved = if (question != null) retrieve(question, mentionPaths) else emptyList()
         lastRetrieved = retrieved.map { it.first }
         refreshContextFiles()
-        return runReadAction { assemble(mentionPaths, retrieved.map { it.second }, budgetChars) }
+        val selection = captureSelection()
+        return runReadAction { assemble(selection, mentionPaths, retrieved.map { it.second }, budgetChars) }
+    }
+
+    // --- Editor selection (editor models are EDT-confined — never touch them elsewhere) ---
+
+    /** Snapshot of the focused editor's selection, or null when nothing useful is selected. */
+    private suspend fun captureSelection(): SelectionSnapshot? = withContext(Dispatchers.EDT) {
+        FileEditorManager.getInstance(project).selectedTextEditor?.let { snapshotFrom(it) }
+    }
+
+    private fun snapshotFrom(editor: Editor): SelectionSnapshot? {
+        val model = editor.selectionModel
+        val text = model.selectedText?.takeIf { it.isNotBlank() } ?: return null
+        val file = FileDocumentManager.getInstance().getFile(editor.document) ?: return null
+        if (file.fileType.isBinary) return null
+        val document = editor.document
+        val startLine = document.getLineNumber(model.selectionStart) + 1
+        val endLine = document.getLineNumber((model.selectionEnd - 1).coerceAtLeast(model.selectionStart)) + 1
+        return SelectionSnapshot(file.path, file.name, startLine, endLine, text.take(MAX_SELECTION_CHARS))
+    }
+
+    private fun updateSelectionChip(editor: Editor?) {
+        val chip = editor?.let { snapshotFrom(it) }
+            ?.let { ContextFileDto(path = it.path, fileName = it.presentableName, source = SOURCE_SELECTION) }
+        if (chip != selectionChip) {
+            selectionChip = chip
+            refreshContextFiles()
+        }
     }
 
     // --- Assembly (inside one read action; only VFS/document reads) ----------
 
     private fun assemble(
+        selection: SelectionSnapshot?,
         mentionPaths: List<String>,
         retrievedBlocks: List<String>,
         budgetChars: Int,
@@ -101,6 +178,13 @@ class ProjectContextCollector(private val project: Project) : Disposable {
                     appendFile(block, file.path + " [mentioned]", documentManager.getDocument(file)?.text, budgetChars)
                 }
             }
+        }
+
+        // The user's live selection: priority just below mentions — under a tight budget the
+        // exact snippet they are asking about must survive even if its file gets truncated.
+        if (selection != null && block.length < budgetChars) {
+            val header = "${selection.path} (lines ${selection.startLine}-${selection.endLine}) [user's current selection]"
+            appendFile(block, header, selection.text, budgetChars)
         }
 
         // Remaining budget: open files get 60%, retrieval is guaranteed 40% when it has
