@@ -15,11 +15,15 @@ object MarkdownBlocks {
         data class Paragraph(val html: String) : Block
 
         data class Code(val language: String?, val text: String) : Block
+
+        /** A complete `<table>…</table>` fragment (cells already inline-converted). */
+        data class Table(val html: String) : Block
     }
 
     fun parse(markdown: String): List<Block> {
         val blocks = mutableListOf<Block>()
         val paragraphLines = mutableListOf<String>()
+        val tableLines = mutableListOf<String>()
         val codeLines = mutableListOf<String>()
         var inCode = false
         var codeLanguage: String? = null
@@ -29,6 +33,20 @@ object MarkdownBlocks {
                 blocks += Block.Paragraph(paragraphLines.joinToString("<br>") { lineToHtml(it) })
             }
             paragraphLines.clear()
+        }
+
+        fun flushTable() {
+            if (tableLines.isEmpty()) return
+            if (tableLines.size >= 2 && isSeparatorRow(tableLines[1])) {
+                blocks += Block.Table(buildTableHtml(
+                    header = splitCells(tableLines[0]),
+                    rows = tableLines.drop(2).map { splitCells(it) },
+                ))
+            } else {
+                // Not (yet) a valid table — e.g. header row still streaming: plain text.
+                blocks += Block.Paragraph(tableLines.joinToString("<br>") { lineToHtml(it) })
+            }
+            tableLines.clear()
         }
 
         fun flushCode() {
@@ -45,16 +63,55 @@ object MarkdownBlocks {
                     inCode = false
                 } else {
                     flushParagraph()
+                    flushTable()
                     inCode = true
                     codeLanguage = trimmed.removePrefix("```").trim().takeIf { it.isNotBlank() }
                 }
                 continue
             }
-            if (inCode) codeLines += line else paragraphLines += line
+            when {
+                inCode -> codeLines += line
+                trimmed.startsWith("|") -> {
+                    flushParagraph()
+                    tableLines += line
+                }
+                else -> {
+                    flushTable()
+                    paragraphLines += line
+                }
+            }
         }
         // Unclosed fence while streaming: show what we have as code.
-        if (inCode) flushCode() else flushParagraph()
+        if (inCode) flushCode() else {
+            flushTable()
+            flushParagraph()
+        }
         return blocks
+    }
+
+    private fun isSeparatorRow(line: String): Boolean {
+        val trimmed = line.trim()
+        if (!trimmed.startsWith("|") || '-' !in trimmed) return false
+        return trimmed.all { it == '|' || it == '-' || it == ':' || it == ' ' }
+    }
+
+    private fun splitCells(line: String): List<String> = line.trim()
+        .removePrefix("|")
+        .removeSuffix("|")
+        .split("|")
+        .map { inlineToHtml(it.trim()) }
+
+    private fun buildTableHtml(header: List<String>, rows: List<List<String>>): String {
+        val html = StringBuilder("<table border=\"1\" cellspacing=\"0\" cellpadding=\"4\">")
+        html.append("<tr>")
+        header.forEach { html.append("<th align=\"left\">").append(it).append("</th>") }
+        html.append("</tr>")
+        for (row in rows) {
+            html.append("<tr>")
+            row.forEach { html.append("<td>").append(it).append("</td>") }
+            html.append("</tr>")
+        }
+        return html.append("</table>").toString()
     }
 
     /** One markdown source line → escaped HTML with inline styling applied. */

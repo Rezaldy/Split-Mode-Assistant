@@ -64,6 +64,7 @@ class MarkdownContent(private val project: Project? = null) : JPanel() {
             val new = parsed[reusable]
             val sameShape = when {
                 old is MarkdownBlocks.Block.Paragraph && new is MarkdownBlocks.Block.Paragraph -> true
+                old is MarkdownBlocks.Block.Table && new is MarkdownBlocks.Block.Table -> true
                 old is MarkdownBlocks.Block.Code && new is MarkdownBlocks.Block.Code ->
                     old.language == new.language
                 else -> false
@@ -88,6 +89,7 @@ class MarkdownContent(private val project: Project? = null) : JPanel() {
 
     private fun createView(block: MarkdownBlocks.Block): BlockView = when (block) {
         is MarkdownBlocks.Block.Paragraph -> ParagraphView(block, wrapWidthPx)
+        is MarkdownBlocks.Block.Table -> ParagraphView(block, wrapWidthPx)
         is MarkdownBlocks.Block.Code -> CodeView(block, wrapWidthPx, project)
     }
 }
@@ -97,7 +99,7 @@ private interface BlockView {
     fun setWrapWidth(px: Int)
 }
 
-private class ParagraphView(block: MarkdownBlocks.Block.Paragraph, private var wrapPx: Int) :
+private class ParagraphView(block: MarkdownBlocks.Block, private var wrapPx: Int) :
     JEditorPane(), BlockView {
 
     private var currentHtml = ""
@@ -118,7 +120,11 @@ private class ParagraphView(block: MarkdownBlocks.Block.Paragraph, private var w
     }
 
     override fun update(block: MarkdownBlocks.Block) {
-        val html = (block as MarkdownBlocks.Block.Paragraph).html
+        val html = when (block) {
+            is MarkdownBlocks.Block.Paragraph -> block.html
+            is MarkdownBlocks.Block.Table -> block.html
+            is MarkdownBlocks.Block.Code -> return
+        }
         if (html == currentHtml) return
         currentHtml = html
         text = wrapHtml(html)
