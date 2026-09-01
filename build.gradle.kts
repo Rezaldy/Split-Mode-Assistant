@@ -3,7 +3,7 @@ import org.jetbrains.intellij.platform.gradle.TestFrameworkType
 import org.jetbrains.intellij.platform.gradle.tasks.aware.SplitModeAware
 
 group = "com.rizkybusiness.ai"
-version = "0.8.0"
+version = "0.8.1"
 
 val intellijPlatformVersion = providers.gradleProperty("intellijPlatformVersion").get()
 
