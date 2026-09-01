@@ -22,6 +22,7 @@ import javax.swing.BoxLayout
 import javax.swing.JEditorPane
 import javax.swing.JPanel
 import javax.swing.event.HyperlinkEvent
+import javax.swing.text.DefaultCaret
 
 /**
  * Renders chat markdown: paragraphs as themed HTML, fenced code blocks as read-only IDE
@@ -105,8 +106,14 @@ private class ParagraphView(block: MarkdownBlocks.Block, private var wrapPx: Int
     init {
         editorKit = HTMLEditorKitBuilder().withWordWrapViewFactory().build()
         isEditable = false
-        isFocusable = false
         isOpaque = false
+        // Text must be selectable/copyable. The pane stays focusable (mouse selection and
+        // Ctrl+C need focus), the selection stays highlighted after focus moves to another
+        // bubble, and NEVER_UPDATE keeps streaming document updates from yanking the
+        // chat's scroll position toward the caret.
+        caret = object : DefaultCaret() {
+            override fun setSelectionVisible(visible: Boolean) = super.setSelectionVisible(true)
+        }.apply { updatePolicy = DefaultCaret.NEVER_UPDATE }
         border = JBUI.Borders.emptyBottom(4)
         alignmentX = LEFT_ALIGNMENT
         addHyperlinkListener { event ->
