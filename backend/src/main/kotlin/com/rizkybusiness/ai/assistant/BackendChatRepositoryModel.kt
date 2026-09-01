@@ -6,6 +6,7 @@ import com.rizkybusiness.ai.assistant.context.ProjectContextCollector
 import com.rizkybusiness.ai.assistant.models.BackendModelsService
 import com.rizkybusiness.ai.assistant.ollama.OllamaChatMessage
 import com.rizkybusiness.ai.assistant.ollama.OllamaClientService
+import com.rizkybusiness.ai.assistant.ollama.OllamaDoneStats
 import com.rizkybusiness.ai.assistant.ollama.OllamaException
 import com.rizkybusiness.ai.assistant.repository.ChatMessageFactory
 import com.rizkybusiness.ai.assistant.settings.AssistantSettings
@@ -83,33 +84,59 @@ class BackendChatRepositoryModel(private val project: Project) {
         val content = StringBuilder()
         val thinking = StringBuilder()
         var lastFlush = 0L
-        var truncatedByLimit = false
+        var doneStats: OllamaDoneStats? = null
+        val numCtx = AssistantSettings.getInstance().contextTokens
         val requestThinking = BackendModelsService.getInstance().supportsThinking(model)
-        OllamaClientService.getInstance().client()
-            .chatStream(
-                model,
-                requestMessages,
-                contextTokens = AssistantSettings.getInstance().contextTokens,
-                requestThinking = requestThinking,
-                onDone = { reason -> truncatedByLimit = reason == "length" },
-            )
-            .collect { token ->
-                if (token.isThinking) thinking.append(token.text) else content.append(token.text)
-                val now = System.currentTimeMillis()
-                if (now - lastFlush >= STREAM_FLUSH_INTERVAL_MS) {
-                    lastFlush = now
-                    upsertAssistantMessage(
-                        streamedMessage.copy(content = content.toString(), thinking = thinking.toString())
-                    )
+        try {
+            OllamaClientService.getInstance().client()
+                .chatStream(
+                    model,
+                    requestMessages,
+                    contextTokens = numCtx,
+                    requestThinking = requestThinking,
+                    onDone = { doneStats = it },
+                )
+                .collect { token ->
+                    if (token.isThinking) thinking.append(token.text) else content.append(token.text)
+                    val now = System.currentTimeMillis()
+                    if (now - lastFlush >= STREAM_FLUSH_INTERVAL_MS) {
+                        lastFlush = now
+                        upsertAssistantMessage(
+                            streamedMessage.copy(content = content.toString(), thinking = thinking.toString())
+                        )
+                    }
                 }
+        } finally {
+            // On failure or cancel the throttle above has dropped up to 100ms of received
+            // tokens from the display — flush them so the visible cut is the real one.
+            if (content.isNotEmpty() || thinking.isNotEmpty()) {
+                upsertAssistantMessage(
+                    streamedMessage.copy(content = content.toString(), thinking = thinking.toString())
+                )
             }
-        if (truncatedByLimit) {
+        }
+        val stats = doneStats
+        val usedTokens = (stats?.promptTokens ?: 0) + (stats?.replyTokens ?: 0)
+        val nearLimit = usedTokens >= (numCtx * 98) / 100
+        if (stats?.reason == "length") {
             content.append("\n\n*")
                 .append(ModularPluginBackendBundle.message("chat.truncated"))
                 .append("*")
+        } else if (nearLimit) {
+            // Ollama sometimes ends a context-exhausted stream with a clean "stop" —
+            // the counts give it away, so say so instead of leaving a silent mid-word cut.
+            content.append("\n\n*")
+                .append(ModularPluginBackendBundle.message("chat.context.full", usedTokens, numCtx))
+                .append("*")
         }
         upsertAssistantMessage(
-            streamedMessage.copy(content = content.toString(), thinking = thinking.toString())
+            streamedMessage.copy(
+                content = content.toString(),
+                thinking = thinking.toString(),
+                promptTokens = stats?.promptTokens ?: 0,
+                replyTokens = stats?.replyTokens ?: 0,
+                contextLimit = numCtx,
+            )
         )
     }
 

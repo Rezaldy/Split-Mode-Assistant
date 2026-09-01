@@ -53,7 +53,12 @@ data class ChatMessageDto(
     /** Epoch millis — plain data only on the wire; rendered in the client's timezone. */
     val timestampEpochMillis: Long,
     val type: ChatMessage.ChatMessageType,
-    val thinking: String = ""
+    val thinking: String = "",
+    /** Token usage for the producing request (assistant messages; 0 = unknown). */
+    val promptTokens: Int = 0,
+    val replyTokens: Int = 0,
+    /** num_ctx the request was sent with; 0 = unknown. */
+    val contextLimit: Int = 0,
 )
 
 fun ChatMessageDto.toChatMessage(): ChatMessage {
@@ -65,7 +70,10 @@ fun ChatMessageDto.toChatMessage(): ChatMessage {
         timestamp = LocalDateTime.ofInstant(
             Instant.ofEpochMilli(timestampEpochMillis), ZoneId.systemDefault()),
         type = type,
-        thinking = thinking
+        thinking = thinking,
+        promptTokens = promptTokens,
+        replyTokens = replyTokens,
+        contextLimit = contextLimit,
     )
 }
 
@@ -77,6 +85,9 @@ fun ChatMessage.toChatMessageDto(): ChatMessageDto {
         isMyMessage = isMyMessage,
         timestampEpochMillis = timestamp.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli(),
         type = type,
-        thinking = thinking
+        thinking = thinking,
+        promptTokens = promptTokens,
+        replyTokens = replyTokens,
+        contextLimit = contextLimit,
     )
 }
