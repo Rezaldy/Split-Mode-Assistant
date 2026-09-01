@@ -6,11 +6,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import java.io.IOException
+import java.io.UncheckedIOException
 import java.net.ConnectException
 import java.net.URI
 import java.net.http.HttpClient
@@ -18,6 +21,7 @@ import java.net.http.HttpConnectTimeoutException
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
 import java.time.Duration
+import java.util.Optional
 
 /** Failure talking to the model source; [message] is user-presentable and ends up in the chat. */
 class OllamaException(message: String, cause: Throwable? = null) : RuntimeException(message, cause)
@@ -92,9 +96,21 @@ internal data class OllamaEmbedResponse(val embeddings: List<List<Float>> = empt
 /**
  * Client for one Ollama-compatible model source. JDK HttpClient + kotlinx.serialization only.
  *
- * No request timeout on purpose: streamed responses and model cold-starts can take minutes.
+ * No TOTAL request timeout on purpose: streamed responses and model cold-starts can take
+ * minutes. Streams instead have an idle watchdog — generous before the first chunk (cold
+ * model load), short between chunks (a healthy generation emits tokens continuously) —
+ * because a source that stalls with the connection open would otherwise hang the chat
+ * forever with no error anywhere (observed in the field as "reply silently cut off").
  */
 class OllamaClient(val baseUrl: String, val useProxy: Boolean = false) {
+
+    companion object {
+        /** Max wait for the first stream chunk: covers cold-loading a large model. */
+        const val FIRST_CHUNK_TIMEOUT_MS = 600_000L
+
+        /** Max silence between chunks mid-generation before the stream counts as stalled. */
+        const val STREAM_IDLE_TIMEOUT_MS = 120_000L
+    }
 
     private val json = Json { ignoreUnknownKeys = true }
     private val http = HttpClient.newBuilder()
@@ -177,12 +193,38 @@ class OllamaClient(val baseUrl: String, val useProxy: Boolean = false) {
         val response = mapConnectErrors { http.send(request, HttpResponse.BodyHandlers.ofLines()) }
         var sawDone = false
         var chunkCount = 0
-        response.body().use { lines ->
+        // mapConnectErrors also covers mid-stream IOExceptions -> "stream interrupted" bubble.
+        mapConnectErrors { response.body().use { lines ->
             if (response.statusCode() != 200) {
                 val firstLine = lines.findFirst().orElse("")
                 throw httpError(response.statusCode(), firstLine, model)
             }
-            for (line in lines.iterator()) {
+            val iterator = lines.iterator()
+            var idleTimeoutMs = FIRST_CHUNK_TIMEOUT_MS
+            while (true) {
+                // The JDK line stream only offers blocking reads; runInterruptible turns the
+                // watchdog timeout's cancellation into a thread interrupt that unblocks it.
+                val next = withTimeoutOrNull(idleTimeoutMs) {
+                    runInterruptible(Dispatchers.IO) {
+                        try {
+                            if (iterator.hasNext()) Optional.of(iterator.next()) else Optional.empty()
+                        } catch (e: UncheckedIOException) {
+                            throw e.cause ?: e
+                        }
+                    }
+                }
+                if (next == null) {
+                    thisLogger().warn(
+                        "Chat stream for '$model' stalled: no data for ${idleTimeoutMs / 1000}s " +
+                            "after $chunkCount chunks"
+                    )
+                    throw OllamaException(
+                        ModularPluginBackendBundle.message("error.stream.stalled", idleTimeoutMs / 1000)
+                    )
+                }
+                if (next.isEmpty) break
+                val line = next.get()
+                idleTimeoutMs = STREAM_IDLE_TIMEOUT_MS
                 if (line.isBlank()) continue
                 val chunk = json.decodeFromString<OllamaChatChunk>(line)
                 chunkCount++
@@ -213,7 +255,7 @@ class OllamaClient(val baseUrl: String, val useProxy: Boolean = false) {
                     break
                 }
             }
-        }
+        } }
         // Ollama always terminates a healthy stream with done:true. EOF without it means
         // something between us and the model (proxy/gateway timeout, server death) cut
         // the connection — silently accepting the partial reply hides real infrastructure
