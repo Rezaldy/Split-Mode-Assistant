@@ -27,4 +27,9 @@ class BackendChatRepositoryRpcApi : ChatRepositoryRpcApi {
         val backendProject = projectId.findProjectOrNull() ?: return
         return BackendChatRepositoryModel.getInstance(backendProject).sendMessage(messageContent, attachments)
     }
+
+    override suspend fun abortGeneration(projectId: ProjectId) {
+        val backendProject = projectId.findProjectOrNull() ?: return
+        BackendChatRepositoryModel.getInstance(backendProject).abortGeneration()
+    }
 }

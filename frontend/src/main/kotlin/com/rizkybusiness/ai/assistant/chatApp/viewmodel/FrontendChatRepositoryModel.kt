@@ -43,6 +43,10 @@ class FrontendChatRepositoryModel(
         ChatRepositoryRpcApi.getInstance().sendMessage(project.projectId(), messageContent, attachments)
     }
 
+    override suspend fun abortGeneration() {
+        ChatRepositoryRpcApi.getInstance().abortGeneration(project.projectId())
+    }
+
     override suspend fun searchFiles(query: String, limit: Int): List<FileRefDto> {
         return FileSearchApi.getInstance().search(project.projectId(), query, limit)
     }
