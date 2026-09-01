@@ -36,9 +36,10 @@ import kotlinx.coroutines.withContext
  * Assembles the project-context block sent to the model, under a hard character budget,
  * and publishes which files that context is built from (shown in the chat UI).
  *
- * Budget priority: `@`-mentioned files first, then the remainder splits 60% open files /
- * 40% index-retrieved snippets (each side's unused share spills to the other). With the
- * index disabled, not ready, or empty of hits, behavior is identical to open-files-only.
+ * Budget priority: `@`-mentioned files first, then the user's current editor selection,
+ * then the remainder splits 60% open files / 40% index-retrieved snippets (each side's
+ * unused share spills to the other). With the index disabled, not ready, or empty of hits,
+ * behavior is identical to open-files-only.
  * Retrieval failures NEVER block chat — they degrade to non-indexed context and log.
  */
 @Service(Service.Level.PROJECT)
@@ -263,7 +264,8 @@ class ProjectContextCollector(private val project: Project) : Disposable {
     private fun refreshContextFiles() {
         val open = openTextFiles().map { ContextFileDto(path = it.path, fileName = it.name) }
         val openPaths = open.map { it.path }.toSet()
-        _contextFiles.value = open + lastRetrieved.filter { it.path !in openPaths }
+        _contextFiles.value =
+            listOfNotNull(selectionChip) + open + lastRetrieved.filter { it.path !in openPaths }
     }
 
     private fun openTextFiles(): List<VirtualFile> =

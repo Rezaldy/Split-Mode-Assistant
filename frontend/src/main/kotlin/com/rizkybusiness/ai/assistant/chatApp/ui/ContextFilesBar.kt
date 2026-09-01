@@ -36,10 +36,10 @@ class ContextFilesBar : JPanel() {
             label.text = ModularPluginFrontendBundle.message(
                 "chat.context.files",
                 files.joinToString(", ") { file ->
-                    if (file.source == "retrieved") {
-                        ModularPluginFrontendBundle.message("chat.context.retrieved", file.fileName)
-                    } else {
-                        file.fileName
+                    when (file.source) {
+                        "retrieved" -> ModularPluginFrontendBundle.message("chat.context.retrieved", file.fileName)
+                        "selection" -> ModularPluginFrontendBundle.message("chat.context.selection", file.fileName)
+                        else -> file.fileName
                     }
                 },
             )

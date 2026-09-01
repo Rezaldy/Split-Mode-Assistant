@@ -124,7 +124,7 @@ class BackendChatRepositoryModel(private val project: Project) {
         val systemContent = buildString {
             append(SYSTEM_PROMPT)
             if (context.isNotBlank()) {
-                append("\n\nProject context (currently open files):\n")
+                append("\n\nProject context (each block is labeled with its source — mentioned, selection, open, or retrieved):\n")
                 append(context)
             }
         }
