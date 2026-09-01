@@ -68,4 +68,31 @@ class MarkdownBlocksTest {
     fun `blank-only input yields no blocks`() {
         assertEquals(emptyList<Block>(), MarkdownBlocks.parse("  \n\n"))
     }
+
+    @Test
+    fun `pipe table with separator becomes a table block`() {
+        val md = "intro\n| Name | Age |\n|------|-----|\n| Ada | 36 |\n| Bob | 40 |\noutro"
+        val blocks = MarkdownBlocks.parse(md)
+        assertEquals(3, blocks.size)
+        val table = blocks[1] as Block.Table
+        assertTrue(table.html.startsWith("<table"))
+        assertTrue(table.html.contains("<th align=\"left\">Name</th>"))
+        assertTrue(table.html.contains("<td>Ada</td>"))
+        assertEquals("outro", (blocks[2] as Block.Paragraph).html)
+    }
+
+    @Test
+    fun `table cells get inline styling and escaping`() {
+        val md = "| Col |\n|-----|\n| **b** & `<x>` |"
+        val table = MarkdownBlocks.parse(md)[0] as Block.Table
+        assertTrue(table.html.contains("<b>b</b>"))
+        assertTrue(table.html.contains("<code>&lt;x&gt;</code>"))
+    }
+
+    @Test
+    fun `pipe lines without separator stay plain text`() {
+        val blocks = MarkdownBlocks.parse("| just | one | line |")
+        assertEquals(1, blocks.size)
+        assertTrue(blocks[0] is Block.Paragraph)
+    }
 }
