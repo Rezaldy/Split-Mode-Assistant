@@ -208,8 +208,17 @@ class OllamaClient(val baseUrl: String, val useProxy: Boolean = false) {
                     runInterruptible(Dispatchers.IO) {
                         try {
                             if (iterator.hasNext()) Optional.of(iterator.next()) else Optional.empty()
-                        } catch (e: UncheckedIOException) {
-                            throw e.cause ?: e
+                        } catch (e: Exception) {
+                            val unwrapped = (e as? UncheckedIOException)?.cause ?: e
+                            // The JDK buries the interrupt as IOException(InterruptedException);
+                            // resurface it so runInterruptible maps it back to cancellation —
+                            // watchdog timeout takes the stalled branch below, an external
+                            // cancel (user abort, shutdown) stays a plain cancellation instead
+                            // of masquerading as a stream error.
+                            if (generateSequence<Throwable>(unwrapped) { it.cause }.any { it is InterruptedException }) {
+                                throw InterruptedException()
+                            }
+                            throw unwrapped
                         }
                     }
                 }

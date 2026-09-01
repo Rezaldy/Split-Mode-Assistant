@@ -14,14 +14,20 @@ import com.intellij.openapi.components.Service
 import com.intellij.openapi.diagnostic.thisLogger
 import com.intellij.openapi.project.Project
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
 
 @Service(Service.Level.PROJECT)
-class BackendChatRepositoryModel(private val project: Project) {
+class BackendChatRepositoryModel(
+    private val project: Project,
+    /** Platform-provided service scope — generations run here, not as RPC-call children. */
+    private val serviceScope: CoroutineScope,
+) {
     companion object {
         fun getInstance(project: Project): BackendChatRepositoryModel {
             return project.getService(BackendChatRepositoryModel::class.java)
@@ -48,12 +54,22 @@ class BackendChatRepositoryModel(private val project: Project) {
         return _messages.map { messagesList -> messagesList.map(ChatMessage::toChatMessageDto) }
     }
 
+    @Volatile
+    private var generationJob: Job? = null
+
     suspend fun sendMessage(messageContent: String, attachments: List<String> = emptyList()) {
-        withContext(Dispatchers.IO) {
-            _messages.value += chatMessageFactory.createUserMessage(messageContent)
+        _messages.value += chatMessageFactory.createUserMessage(messageContent)
+        // Generation must survive the RPC call that started it: in Remote Development a
+        // client<->host connection blip cancels in-flight RPC calls while the durable
+        // messages flow reconnects seamlessly — pre-detach, that killed the generation
+        // and showed up as a reply silently cut off mid-word (field-confirmed). So the
+        // work runs on the service scope; the RPC only awaits it, cancellably.
+        generationJob?.cancel()
+        val job = serviceScope.launch(Dispatchers.IO) {
             try {
                 streamAssistantResponse(messageContent, attachments)
             } catch (e: CancellationException) {
+                thisLogger().info("Chat generation cancelled (user abort or backend shutdown)")
                 _messages.value = _messages.value.filter { !it.isAIThinkingMessage() }
                 throw e
             } catch (e: OllamaException) {
@@ -71,6 +87,13 @@ class BackendChatRepositoryModel(private val project: Project) {
                 )
             }
         }
+        generationJob = job
+        job.join()
+    }
+
+    /** Stops the in-flight generation; the partial reply stays (flushed by the stream loop). */
+    fun abortGeneration() {
+        generationJob?.cancel()
     }
 
     private suspend fun streamAssistantResponse(question: String, attachments: List<String>) {

@@ -37,6 +37,13 @@ interface ChatRepositoryRpcApi : RemoteApi<Unit> {
     suspend fun sendMessage(projectId: ProjectId, messageContent: String, attachments: List<String>)
 
     /**
+     * Cancels the in-flight generation, if any. Generation runs on a backend-owned scope
+     * (it survives the [sendMessage] call being cancelled by a connection blip), so an
+     * explicit abort is the only way the Stop button can actually stop it.
+     */
+    suspend fun abortGeneration(projectId: ProjectId)
+
+    /**
      * Flow of the files the backend currently includes as model context (open files for now).
      * Emits a new list whenever files are opened or closed on the host.
      */

@@ -159,6 +159,16 @@ class ChatViewModel(
     }
 
     override fun onAbortSendingMessage() {
+        // The backend generation is detached from the sendMessage call, so cancelling the
+        // local job only stops the wait — the explicit RPC is what stops the generation.
+        coroutineScope.launch {
+            try {
+                repository.abortGeneration()
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                // Nothing to do: the backend generation may already be gone.
+            }
+        }
         currentSendMessageJob?.cancel()
 
         emitPromptInputState(

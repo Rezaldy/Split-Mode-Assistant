@@ -24,6 +24,9 @@ interface ChatRepositoryApi {
      */
     suspend fun sendMessage(messageContent: String, attachments: List<String> = emptyList())
 
+    /** Stops the backend's in-flight generation (the Stop button); the partial reply stays. */
+    suspend fun abortGeneration()
+
     /** Fuzzy project-file search for the `@` popup; resolved on the backend. */
     suspend fun searchFiles(query: String, limit: Int = 20): List<FileRefDto>
 
