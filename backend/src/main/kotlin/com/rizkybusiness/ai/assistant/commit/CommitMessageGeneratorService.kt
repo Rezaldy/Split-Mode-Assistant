@@ -40,11 +40,6 @@ class CommitMessageGeneratorService(
         /** Diff budget; commit diffs beyond this get truncated (the head carries the intent). */
         private const val MAX_DIFF_CHARS = 24_000
         private const val FIELD_FLUSH_INTERVAL_MS = 100L
-        private const val SYSTEM_PROMPT =
-            "You write git commit messages. Given a unified diff, reply with ONLY the commit " +
-                "message text: an imperative subject line of at most 72 characters; optionally, " +
-                "after a blank line, a short body (a few lines) explaining what changed and why. " +
-                "No code fences, no quotes, no commentary, no trailing explanation."
     }
 
     @Volatile
@@ -97,7 +92,7 @@ class CommitMessageGeneratorService(
     private suspend fun streamMessage(diff: String, commitMessage: CommitMessageI) {
         val model = BackendModelsService.getInstance().resolveChatModel()
         val request = listOf(
-            OllamaChatMessage("system", SYSTEM_PROMPT),
+            OllamaChatMessage("system", AssistantSettings.getInstance().effectiveCommitSystemPrompt),
             OllamaChatMessage("user", diff),
         )
         val text = StringBuilder()
