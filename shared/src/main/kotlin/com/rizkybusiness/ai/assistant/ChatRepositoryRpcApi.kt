@@ -22,26 +22,30 @@ interface ChatRepositoryRpcApi : RemoteApi<Unit> {
     }
 
     /**
-     * Flow that emits a list of chat messages.
-     * Updates with new messages as they are received or edited.
+     * Flow that emits the message list of one conversation ([chatId] — an opaque id minted
+     * by the frontend, one per chat tab). The conversation is created lazily on first use;
+     * each conversation has its own history, so its prompt context stays scoped to it.
      */
-    suspend fun getMessagesFlow(projectId: ProjectId): Flow<List<ChatMessageDto>>
+    suspend fun getMessagesFlow(projectId: ProjectId, chatId: String): Flow<List<ChatMessageDto>>
 
     /**
-     * Sends a message with the provided content.
+     * Sends a message into the conversation [chatId].
      *
      * @param messageContent The content of the message to be sent.
      * @param attachments Full paths of `@`-mentioned files; they take priority in the
      *   context budget. Structured on purpose — never parsed back out of the text.
      */
-    suspend fun sendMessage(projectId: ProjectId, messageContent: String, attachments: List<String>)
+    suspend fun sendMessage(projectId: ProjectId, chatId: String, messageContent: String, attachments: List<String>)
 
     /**
-     * Cancels the in-flight generation, if any. Generation runs on a backend-owned scope
-     * (it survives the [sendMessage] call being cancelled by a connection blip), so an
-     * explicit abort is the only way the Stop button can actually stop it.
+     * Cancels the in-flight generation of conversation [chatId], if any. Generation runs
+     * on a backend-owned scope (it survives the [sendMessage] call being cancelled by a
+     * connection blip), so an explicit abort is the only way the Stop button can stop it.
      */
-    suspend fun abortGeneration(projectId: ProjectId)
+    suspend fun abortGeneration(projectId: ProjectId, chatId: String)
+
+    /** Drops the conversation's backend state (called when its tab closes); aborts its generation. */
+    suspend fun closeChat(projectId: ProjectId, chatId: String)
 
     /**
      * Flow of the files the backend currently includes as model context (open files for now).
