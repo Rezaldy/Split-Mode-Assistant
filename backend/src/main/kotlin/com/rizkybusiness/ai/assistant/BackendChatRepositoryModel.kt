@@ -42,10 +42,6 @@ class BackendChatRepositoryModel(
         /** Throttle for pushing partial content into the messages flow (each emission crosses RPC). */
         private const val STREAM_FLUSH_INTERVAL_MS = 100L
         private const val MAX_HISTORY_MESSAGES = 20
-        private const val SYSTEM_PROMPT =
-            "You are a concise coding assistant embedded in a JetBrains IDE. " +
-                "Use the provided project context when it is relevant to the question. " +
-                "Snippets labeled [retrieved] were found by semantic search of the project index."
     }
 
     private val chatMessageFactory = ChatMessageFactory(
@@ -198,7 +194,7 @@ class BackendChatRepositoryModel(
             val context = ProjectContextCollector.getInstance(project)
                 .collect(question = question, mentionPaths = attachments)
             val systemContent = buildString {
-                append(SYSTEM_PROMPT)
+                append(AssistantSettings.getInstance().effectiveChatSystemPrompt)
                 if (context.isNotBlank()) {
                     append("\n\nProject context (each block is labeled with its source — mentioned, selection, open, or retrieved):\n")
                     append(context)

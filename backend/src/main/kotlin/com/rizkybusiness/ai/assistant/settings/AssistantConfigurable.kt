@@ -9,6 +9,8 @@ import com.intellij.openapi.ui.ComboBox
 import com.intellij.ui.TitledSeparator
 import com.intellij.ui.components.JBCheckBox
 import com.intellij.ui.components.JBLabel
+import com.intellij.ui.components.JBScrollPane
+import com.intellij.ui.components.JBTextArea
 import com.intellij.ui.components.JBTextField
 import com.intellij.util.ui.FormBuilder
 import com.intellij.util.ui.JBFont
@@ -48,6 +50,19 @@ class AssistantConfigurable(private val project: Project) : Configurable {
     private val rebuildButton = JButton(ModularPluginBackendBundle.message("settings.index.rebuild"))
     private val statusLabel = JBLabel()
     private var statusTimer: Timer? = null
+    private val chatPromptArea = promptArea()
+    private val commitPromptArea = promptArea()
+
+    private fun promptArea() = JBTextArea(5, 60).apply {
+        lineWrap = true
+        wrapStyleWord = true
+        font = JBFont.regular()
+        margin = JBUI.insets(4)
+    }
+
+    private fun promptScrollPane(area: JBTextArea) = JBScrollPane(area).apply {
+        preferredSize = JBUI.size(560, 96)
+    }
 
     override fun getDisplayName(): String =
         ModularPluginBackendBundle.message("settings.display.name")
@@ -94,6 +109,14 @@ class AssistantConfigurable(private val project: Project) : Configurable {
         builder.addComponent(useProxyCheckbox)
             .addComponentToRightColumn(hintLabel(
                 ModularPluginBackendBundle.message("settings.use.proxy.hint")))
+
+        // System prompts: what the model is told before every request, per task.
+        builder.addComponent(TitledSeparator(ModularPluginBackendBundle.message("settings.prompts.title")))
+            .addComponent(JBLabel(ModularPluginBackendBundle.message("settings.prompts.chat")))
+            .addComponent(promptScrollPane(chatPromptArea))
+            .addComponent(JBLabel(ModularPluginBackendBundle.message("settings.prompts.commit")))
+            .addComponent(promptScrollPane(commitPromptArea))
+            .addComponent(hintLabel(ModularPluginBackendBundle.message("settings.prompts.hint")))
 
         // Project indexing: configuration first, then enable + Rebuild together.
         builder.addComponent(TitledSeparator(ModularPluginBackendBundle.message("settings.index.title")))
@@ -179,7 +202,9 @@ class AssistantConfigurable(private val project: Project) : Configurable {
             useProxyCheckbox.isSelected != settings.useProxy ||
             indexingCheckbox.isSelected != settings.indexingEnabled ||
             uiEmbeddingUrl() != settings.storedEmbeddingBaseUrl ||
-            comboText() != settings.storedEmbeddingModel
+            comboText() != settings.storedEmbeddingModel ||
+            chatPromptArea.text.trim() != settings.effectiveChatSystemPrompt ||
+            commitPromptArea.text.trim() != settings.effectiveCommitSystemPrompt
     }
 
     override fun apply() {
@@ -188,6 +213,11 @@ class AssistantConfigurable(private val project: Project) : Configurable {
         contextTokensField.text.trim().toIntOrNull()?.let { settings.contextTokens = it }
         contextTokensField.text = settings.contextTokens.toString()
         settings.useProxy = useProxyCheckbox.isSelected
+        settings.storedChatSystemPrompt = chatPromptArea.text
+        settings.storedCommitSystemPrompt = commitPromptArea.text
+        // Blanked areas fall back to the built-in defaults — reflect that immediately.
+        chatPromptArea.text = settings.effectiveChatSystemPrompt
+        commitPromptArea.text = settings.effectiveCommitSystemPrompt
         BackendModelsService.getInstance().refreshAsync()
 
         val wasEnabled = settings.indexingEnabled
@@ -215,6 +245,8 @@ class AssistantConfigurable(private val project: Project) : Configurable {
         customEmbedUrlCheckbox.isSelected =
             settings.storedEmbeddingBaseUrl.isNotBlank() || settings.embeddingBaseUrlEnvOverride != null
         embeddingModelCombo.editor.item = settings.storedEmbeddingModel
+        chatPromptArea.text = settings.effectiveChatSystemPrompt
+        commitPromptArea.text = settings.effectiveCommitSystemPrompt
         updateEmbeddingUrlVisibility()
     }
 
