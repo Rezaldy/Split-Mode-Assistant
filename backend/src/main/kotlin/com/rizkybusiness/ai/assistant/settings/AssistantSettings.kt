@@ -24,6 +24,9 @@ class AssistantSettings : PersistentStateComponent<AssistantSettings.State> {
         var embeddingBaseUrl: String = ""
         var useProxy: Boolean = false
         var contextTokens: Int = DEFAULT_CONTEXT_TOKENS
+        /** Blank = use the built-in default prompt. */
+        var chatSystemPrompt: String = ""
+        var commitSystemPrompt: String = ""
     }
 
     private var state = State()
@@ -41,6 +44,18 @@ class AssistantSettings : PersistentStateComponent<AssistantSettings.State> {
         // replies. 16k fits our 24k-char context budget + history + a long answer.
         const val DEFAULT_CONTEXT_TOKENS = 16_384
         const val MIN_CONTEXT_TOKENS = 2_048
+
+        // Prompts are English on purpose (model instructions, not UI strings) and live here
+        // so the settings panel can show and restore them.
+        const val DEFAULT_CHAT_SYSTEM_PROMPT =
+            "You are a concise coding assistant embedded in a JetBrains IDE. " +
+                "Use the provided project context when it is relevant to the question. " +
+                "Snippets labeled [retrieved] were found by semantic search of the project index."
+        const val DEFAULT_COMMIT_SYSTEM_PROMPT =
+            "You write git commit messages. Given a unified diff, reply with ONLY the commit " +
+                "message text: an imperative subject line of at most 72 characters; optionally, " +
+                "after a blank line, a short body (a few lines) explaining what changed and why. " +
+                "No code fences, no quotes, no commentary, no trailing explanation."
 
         fun getInstance(): AssistantSettings =
             ApplicationManager.getApplication().getService(AssistantSettings::class.java)
@@ -78,6 +93,28 @@ class AssistantSettings : PersistentStateComponent<AssistantSettings.State> {
         set(value) {
             state.contextTokens = value.coerceAtLeast(MIN_CONTEXT_TOKENS)
         }
+
+    /** Raw stored chat prompt for the settings UI; blank means "default". */
+    var storedChatSystemPrompt: String
+        get() = state.chatSystemPrompt
+        set(value) {
+            state.chatSystemPrompt = if (value.trim() == DEFAULT_CHAT_SYSTEM_PROMPT) "" else value.trim()
+        }
+
+    /** The chat system prompt requests actually use. */
+    val effectiveChatSystemPrompt: String
+        get() = state.chatSystemPrompt.takeIf { it.isNotBlank() } ?: DEFAULT_CHAT_SYSTEM_PROMPT
+
+    /** Raw stored commit prompt for the settings UI; blank means "default". */
+    var storedCommitSystemPrompt: String
+        get() = state.commitSystemPrompt
+        set(value) {
+            state.commitSystemPrompt = if (value.trim() == DEFAULT_COMMIT_SYSTEM_PROMPT) "" else value.trim()
+        }
+
+    /** The commit-message system prompt requests actually use. */
+    val effectiveCommitSystemPrompt: String
+        get() = state.commitSystemPrompt.takeIf { it.isNotBlank() } ?: DEFAULT_COMMIT_SYSTEM_PROMPT
 
     /** Off = direct connection (default); on = honor the IDE's HTTP proxy configuration. */
     var useProxy: Boolean
