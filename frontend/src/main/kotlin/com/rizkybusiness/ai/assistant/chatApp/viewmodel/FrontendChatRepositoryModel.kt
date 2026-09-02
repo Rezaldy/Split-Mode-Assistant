@@ -12,50 +12,47 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.stateIn
-import com.rizkybusiness.ai.assistant.ChatMessage
+import kotlinx.coroutines.launch
 import com.rizkybusiness.ai.assistant.ChatRepositoryRpcApi
 import com.rizkybusiness.ai.assistant.ContextFileDto
 import com.rizkybusiness.ai.assistant.FileRefDto
 import com.rizkybusiness.ai.assistant.FileSearchApi
-import com.rizkybusiness.ai.assistant.toChatMessage
 
+/**
+ * Project-wide chat plumbing shared by every chat tab: the context-files bar flow, file
+ * search for the `@` popup, and backend cleanup for closed tabs. Per-conversation state
+ * lives in [ChatTabRepository] — one instance per tab.
+ */
 @Service(Level.PROJECT)
 class FrontendChatRepositoryModel(
     private val project: Project,
-    coroutineScope: CoroutineScope
-) : ChatRepositoryApi {
+    private val coroutineScope: CoroutineScope
+) {
     companion object {
         fun getInstance(project: Project): FrontendChatRepositoryModel {
             return project.getService(FrontendChatRepositoryModel::class.java)
         }
     }
 
-    override val messagesFlow: StateFlow<List<ChatMessage>> = flow {
-        durable {
-            ChatRepositoryRpcApi.getInstance().getMessagesFlow(project.projectId()).collect { valueFromBackend ->
-                val mappedValue = valueFromBackend.map { messageDto -> messageDto.toChatMessage() }
-                emit(mappedValue)
-            }
-        }
-    }.stateIn(coroutineScope, initialValue = emptyList(), started = SharingStarted.Lazily)
-
-    override suspend fun sendMessage(messageContent: String, attachments: List<String>) {
-        ChatRepositoryRpcApi.getInstance().sendMessage(project.projectId(), messageContent, attachments)
-    }
-
-    override suspend fun abortGeneration() {
-        ChatRepositoryRpcApi.getInstance().abortGeneration(project.projectId())
-    }
-
-    override suspend fun searchFiles(query: String, limit: Int): List<FileRefDto> {
+    suspend fun searchFiles(query: String, limit: Int): List<FileRefDto> {
         return FileSearchApi.getInstance().search(project.projectId(), query, limit)
     }
 
-    override val contextFilesFlow: StateFlow<List<ContextFileDto>> = flow {
+    val contextFilesFlow: StateFlow<List<ContextFileDto>> = flow {
         durable {
             ChatRepositoryRpcApi.getInstance().getContextFilesFlow(project.projectId()).collect { valueFromBackend ->
                 emit(valueFromBackend)
             }
         }
     }.stateIn(coroutineScope, initialValue = emptyList(), started = SharingStarted.Lazily)
+
+    /**
+     * Tells the backend to drop a closed tab's conversation. Launched on the service scope:
+     * the tab's own scope is being disposed at that moment and could not carry the call.
+     */
+    fun closeChatAsync(chatId: String) {
+        coroutineScope.launch {
+            runCatching { ChatRepositoryRpcApi.getInstance().closeChat(project.projectId(), chatId) }
+        }
+    }
 }
