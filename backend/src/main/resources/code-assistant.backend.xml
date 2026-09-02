@@ -2,6 +2,7 @@
     <dependencies>
         <module name="intellij.platform.backend"/>
         <module name="intellij.platform.kernel.backend"/>
+        <module name="intellij.platform.vcs.impl"/>
         <module name="code-assistant.shared"/>
     </dependencies>
 
@@ -18,4 +19,11 @@
                            bundle="messages.ModularPluginBackendBundle"
                            key="notification.group.name"/>
     </extensions>
+
+    <actions>
+        <action id="CodeAssistant.GenerateCommitMessage"
+                class="com.rizkybusiness.ai.assistant.commit.GenerateCommitMessageAction">
+            <add-to-group group-id="Vcs.MessageActionGroup" anchor="last"/>
+        </action>
+    </actions>
 </idea-plugin>
