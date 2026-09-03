@@ -99,6 +99,8 @@ Sandbox testing needs Ollama reachable from the machine running the *backend* pr
 
 ## Conventions
 
+- **`DOCUMENTATION.md` is the definition of the application** — what it does, how context assembly and indexing work, where user data (index, settings) lives, and every user-visible feature. Any PR that changes that definition — a feature added or removed, a default changed, a storage location moved, context/priority rules adjusted — updates `DOCUMENTATION.md` in the same PR. Checking it is part of every milestone's and feature PR's definition of done; keeping it accurate is a docs task (delegable), verifying it happened is the reviewer's job.
+- **`README.md` is the front door, kept deliberately thin**: what the plugin is, requirements, install, quick start, and a pointer to `DOCUMENTATION.md` for everything else. It must be updated in the same PR only when setup steps, requirements, or the headline feature list change — detail changes belong in `DOCUMENTATION.md`, never duplicated into the README.
 - Kotlin, official code style. Coroutines + `Flow` for anything async; no raw threads.
 - Dependencies: platform-provided only (`kotlinx.serialization`, coroutines ship with the platform). Adding any external library requires a written justification in the PR description.
 - All user-visible strings in a message bundle from day one (cheap now, painful later).
