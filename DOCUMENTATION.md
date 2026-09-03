@@ -196,6 +196,8 @@ What it does:
 
 Reasoning tokens never enter the commit message field — only the final message text does. Clicking the button again regenerates the message. Failures appear as notifications, not as silent no-ops.
 
+While a message is being generated, a background progress entry — "Split Mode Assistant: generating commit message…" — appears in the status bar (bottom right). Cancelling it from there stops the generation and keeps whatever text had already streamed into the field.
+
 ## Settings
 
 Location: **Settings | Tools | Split Mode Assistant** (on the host, in Remote Development).
