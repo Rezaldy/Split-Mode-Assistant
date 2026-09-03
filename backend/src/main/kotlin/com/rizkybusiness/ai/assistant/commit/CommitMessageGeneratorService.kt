@@ -15,6 +15,7 @@ import com.intellij.openapi.diff.impl.patch.IdeaTextPatchBuilder
 import com.intellij.openapi.diff.impl.patch.UnifiedDiffWriter
 import com.intellij.openapi.vcs.CommitMessageI
 import com.intellij.openapi.application.EDT
+import com.intellij.platform.ide.progress.withBackgroundProgress
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -54,12 +55,19 @@ class CommitMessageGeneratorService(
         generationJob = serviceScope.launch(Dispatchers.IO) {
             isRunning = true
             try {
-                val diff = buildDiff(changes)
-                if (diff.isBlank()) {
-                    notify(ModularPluginBackendBundle.message("commit.generate.no.changes"), NotificationType.WARNING)
-                    return@launch
+                // Non-intrusive status-bar progress (bottom right), cancellable from there;
+                // the platform projects backend progress to the client in split mode.
+                withBackgroundProgress(project, ModularPluginBackendBundle.message("commit.generate.progress")) {
+                    val diff = buildDiff(changes)
+                    if (diff.isBlank()) {
+                        notify(
+                            ModularPluginBackendBundle.message("commit.generate.no.changes"),
+                            NotificationType.WARNING,
+                        )
+                        return@withBackgroundProgress
+                    }
+                    streamMessage(diff, commitMessage)
                 }
-                streamMessage(diff, commitMessage)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
