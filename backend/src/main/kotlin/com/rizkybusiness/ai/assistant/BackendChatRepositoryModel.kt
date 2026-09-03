@@ -147,13 +147,19 @@ class BackendChatRepositoryModel(
                         if (now - lastFlush >= STREAM_FLUSH_INTERVAL_MS) {
                             lastFlush = now
                             upsertAssistantMessage(
-                                streamedMessage.copy(content = content.toString(), thinking = thinking.toString())
+                                streamedMessage.copy(
+                                    content = content.toString(),
+                                    thinking = thinking.toString(),
+                                    isStreaming = true,
+                                )
                             )
                         }
                     }
             } finally {
                 // On failure or cancel the throttle above has dropped up to 100ms of received
                 // tokens from the display — flush them so the visible cut is the real one.
+                // Runs on EVERY exit, so it is also what clears isStreaming: the frontend's
+                // Stop button stays visible exactly as long as some message claims to stream.
                 if (content.isNotEmpty() || thinking.isNotEmpty()) {
                     upsertAssistantMessage(
                         streamedMessage.copy(content = content.toString(), thinking = thinking.toString())

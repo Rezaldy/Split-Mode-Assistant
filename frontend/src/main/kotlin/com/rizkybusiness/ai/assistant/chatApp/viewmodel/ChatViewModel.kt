@@ -104,7 +104,25 @@ class ChatViewModel(
     }
 
     private val _promptInputState = MutableStateFlow<MessageInputState>(MessageInputState.Disabled)
-    override val promptInputState: StateFlow<MessageInputState> = _promptInputState.asStateFlow()
+
+    /**
+     * True while the backend reports a generation in flight for this tab (thinking
+     * placeholder or a streaming reply). Comes from the messages flow, NOT from the local
+     * sendMessage call — a generation survives that call (connection blips), and the Stop
+     * button must survive with it or a runaway thinking loop becomes unstoppable.
+     */
+    private val generationActive: StateFlow<Boolean> = repository.messagesFlow
+        .map { messages -> messages.any { it.isAIThinkingMessage() || it.isStreaming } }
+        .stateIn(coroutineScope, SharingStarted.Eagerly, false)
+
+    /** What the input UI shows: Sending (Stop button) whenever a generation is actually running. */
+    override val promptInputState: StateFlow<MessageInputState> =
+        combine(_promptInputState, generationActive) { local, active ->
+            when {
+                active -> MessageInputState.Sending(local.inputText)
+                else -> local
+            }
+        }.stateIn(coroutineScope, SharingStarted.Eagerly, MessageInputState.Disabled)
 
     private val searchChatMessagesHandler: SearchChatMessagesHandler = SearchChatMessagesHandlerImpl(
         coroutineScope = coroutineScope,
@@ -143,17 +161,22 @@ class ChatViewModel(
                 emitPromptInputState(MessageInputState.Sending(""))
 
                 repository.sendMessage(currentUserMessage, attachments)
-
-                emitPromptInputState(
-                    when (val currentInputState = getCurrentInputTextIfNotEmpty()) {
-                        null -> MessageInputState.Disabled
-                        else -> MessageInputState.Enabled(currentInputState)
-                    }
-                )
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
 
                 emitPromptInputState(MessageInputState.SendFailed(e.message ?: "Unknown error", e))
+            } finally {
+                // The local call ending (done, failed, cancelled, connection blip) never
+                // decides the Stop button — generationActive does. Just release the local
+                // Sending latch; SendFailed set above survives this.
+                if (_promptInputState.value is MessageInputState.Sending) {
+                    emitPromptInputState(
+                        when (val currentInputState = getCurrentInputTextIfNotEmpty()) {
+                            null -> MessageInputState.Disabled
+                            else -> MessageInputState.Enabled(currentInputState)
+                        }
+                    )
+                }
             }
         }
     }
