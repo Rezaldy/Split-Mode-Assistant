@@ -10,13 +10,13 @@ pluginManagement {
     }
     plugins {
         id("rpc") version "2.3.20-RC2-0.1"
-        id("org.jetbrains.kotlin.jvm") version "2.3.20"
-        id("org.jetbrains.kotlin.plugin.serialization") version "2.3.20"
+        id("org.jetbrains.kotlin.jvm") version "2.4.10"
+        id("org.jetbrains.kotlin.plugin.serialization") version "2.4.10"
     }
 }
 
 plugins {
-    id("org.jetbrains.intellij.platform.settings") version "2.16.0"
+    id("org.jetbrains.intellij.platform.settings") version "2.18.1"
 }
 
 rootProject.name = "code-assistant"
