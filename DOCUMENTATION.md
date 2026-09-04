@@ -95,7 +95,7 @@ Each request carries a system prompt (customizable — see Settings) plus a proj
 
 1. **`@`-mentioned files** — full content, first claim on the budget. Binary files are rejected with a note instead of their content.
 2. **Your current editor selection** — up to 8,000 characters, labeled with file path and line numbers.
-3. **The remainder** splits 60% open files / 40% index-retrieved snippets. Either side's unused share spills over to the other. With project indexing off, or no retrieval hits, open files take the entire remainder.
+3. **The remainder** splits 60% open files / 40% index-retrieved snippets. Whatever open files leave unused spills over to retrieval. With project indexing off, or no retrieval hits, open files take the entire remainder.
 
 Every block in the context is labeled with its source, so the model knows why it is seeing each piece of content.
 
@@ -117,6 +117,8 @@ Results are capped at 20. The search is backed by a cached file list that is inv
 Mentions travel with the message as structured attachments, not as text parsed back out of the message body. The referenced files' contents are read on the host at request time.
 
 ## Project indexing (opt-in, local RAG)
+
+This section is the summary. For a code-level, step-by-step walkthrough of the whole pipeline — chunking, the `/api/embed` calls, the on-disk format, retrieval scoring, and how snippets are fitted into the budget — see [EMBEDDINGS.md](EMBEDDINGS.md).
 
 ### Why an embedding model?
 
