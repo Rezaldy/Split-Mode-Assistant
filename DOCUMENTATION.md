@@ -47,6 +47,7 @@ Consequences for users:
 
 - The last 20 messages of a tab's conversation are sent with each request.
 - While a reply is streaming, the send button becomes a Stop button.
+- The Stop button tracks the actual generation on the host — it stays available through client-host connection blips and for as long as a reply (including a long "thinking" phase) is still streaming.
 - Stopping keeps whatever has streamed in so far as the reply; nothing is discarded.
 
 ### Token usage

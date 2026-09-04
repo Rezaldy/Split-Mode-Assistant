@@ -26,6 +26,8 @@ data class ChatMessage(
     val replyTokens: Int = 0,
     /** The num_ctx the request was sent with; 0 = unknown. */
     val contextLimit: Int = 0,
+    /** True while this reply is still streaming from the model source. */
+    val isStreaming: Boolean = false,
 ) : Searchable {
 
     enum class ChatMessageType {

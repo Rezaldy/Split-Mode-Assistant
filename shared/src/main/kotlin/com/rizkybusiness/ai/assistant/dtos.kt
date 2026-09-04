@@ -59,6 +59,8 @@ data class ChatMessageDto(
     val replyTokens: Int = 0,
     /** num_ctx the request was sent with; 0 = unknown. */
     val contextLimit: Int = 0,
+    /** True while this reply is still streaming — drives the Stop button, independent of any RPC call. */
+    val isStreaming: Boolean = false,
 )
 
 fun ChatMessageDto.toChatMessage(): ChatMessage {
@@ -74,6 +76,7 @@ fun ChatMessageDto.toChatMessage(): ChatMessage {
         promptTokens = promptTokens,
         replyTokens = replyTokens,
         contextLimit = contextLimit,
+        isStreaming = isStreaming,
     )
 }
 
@@ -89,5 +92,6 @@ fun ChatMessage.toChatMessageDto(): ChatMessageDto {
         promptTokens = promptTokens,
         replyTokens = replyTokens,
         contextLimit = contextLimit,
+        isStreaming = isStreaming,
     )
 }
