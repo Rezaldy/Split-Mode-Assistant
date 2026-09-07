@@ -202,7 +202,7 @@ While a message is being generated, a background progress entry — "Split Mode 
 
 ## Settings
 
-Location: **Settings | Tools | Split Mode Assistant** (on the host, in Remote Development), with two sub-pages: **Prompts** and **Indexing**.
+Location: **Settings | Tools | Split Mode Assistant** (on the host, in Remote Development), with three sub-pages: **Prompts**, **Indexing**, and **Skills**.
 
 **Split Mode Assistant** (root page)
 
@@ -224,6 +224,17 @@ Location: **Settings | Tools | Split Mode Assistant** (on the host, in Remote De
 |---|---|
 | Project indexing | Enable toggle, Rebuild button, embedding model selection, and an optional custom embedding URL. |
 
+**Skills**
+
+| Setting | Notes |
+|---|---|
+| Skill list | Discovered skills with an Enabled checkbox, scope (Project/User), and location. A row's tooltip shows warnings such as a shadowed copy or a name/folder mismatch. Toolbar: rescan, open/copy folder, and delete (only for skills imported to the host). |
+| Tell the model which skills exist | Off by default. Adds each enabled skill's name and description to the chat system prompt. |
+
+Skills are read on the host from `<project>/.code-assistant/skills`, `.agents/skills`, and `.claude/skills`, and from the same three folders under the host user's home. Project skills override user skills of the same name, and project skills are ignored until the project is trusted.
+
+Using skills from the chat (`/skill-name`) and importing them from your own machine arrive in the next release.
+
 ### Environment overrides
 
 Read on the host; useful for containerized backends:
@@ -236,6 +247,8 @@ Read on the host; useful for containerized backends:
 ## Privacy & data flow
 
 Prompts, including file contents placed in context, go only to the configured model source. The project index lives on the host's disk. Nothing is sent anywhere else.
+
+Skill files are read on the host; skills imported through the plugin are stored under the host user's `~/.code-assistant/skills`.
 
 Chat history is held in memory per IDE session, per tab, and is not persisted — it does not survive an IDE restart.
 
