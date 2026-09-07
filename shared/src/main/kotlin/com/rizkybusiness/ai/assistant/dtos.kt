@@ -95,3 +95,51 @@ fun ChatMessage.toChatMessageDto(): ChatMessageDto {
         isStreaming = isStreaming,
     )
 }
+/** A skill discovered on the host. Catalog data only — the SKILL.md body is read on the host at activation time. */
+@Serializable
+data class SkillDto(
+    val name: String,
+    val description: String,
+    /** "project" or "user". */
+    val scope: String,
+    /** Absolute host path of the SKILL.md file. */
+    val location: String,
+    val enabled: Boolean = true,
+    /** True when it lives in the plugin's own user-level folder (uploaded there) and may be deleted from the UI. */
+    val uploaded: Boolean = false,
+    /** Localized, non-fatal findings: shadowed copy, name/folder mismatch, … */
+    val warnings: List<String> = emptyList(),
+)
+
+@Serializable
+data class SkillsStateDto(
+    val skills: List<SkillDto> = emptyList(),
+    /** Localized note shown above the list, e.g. project skills hidden until the project is trusted. */
+    val error: String? = null,
+)
+
+/** One file of an uploaded skill. Base64 on purpose: kotlinx JSON encodes a ByteArray as a list of numbers. */
+@Serializable
+data class SkillFileDto(
+    /** Path relative to the skill folder, `/`-separated (e.g. `SKILL.md`, `references/guide.md`). */
+    val relativePath: String,
+    val contentBase64: String,
+)
+
+@Serializable
+data class SkillUploadDto(
+    /** Folder name chosen on the client; the backend uses the manifest `name` for the target folder. */
+    val name: String,
+    val files: List<SkillFileDto>,
+    val overwrite: Boolean = false,
+)
+
+@Serializable
+data class SkillUploadResultDto(
+    val success: Boolean,
+    /** "ok" | "exists" | "invalid" | "too-large" | "error" — lets the client branch (offer overwrite) without parsing text. */
+    val code: String,
+    /** Localized on the backend. */
+    val message: String,
+    val skillName: String? = null,
+)

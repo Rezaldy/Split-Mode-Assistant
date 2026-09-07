@@ -26,7 +26,10 @@ import javax.swing.border.CompoundBorder
 import javax.swing.event.DocumentEvent
 import javax.swing.event.DocumentListener
 
-class ChatToolbar(private val viewModel: ChatViewModel) : JPanel() {
+class ChatToolbar(
+    private val viewModel: ChatViewModel,
+    private val onImportSkill: (JComponent) -> Unit,
+) : JPanel() {
     private val searchBar: ChatSearchBar
     private val headerPanel: ChatHeader
 
@@ -38,6 +41,7 @@ class ChatToolbar(private val viewModel: ChatViewModel) : JPanel() {
             onModelSelected = { name -> viewModel.onModelSelected(name) },
             onRefreshModels = { viewModel.onRefreshModels() },
             onRebuildIndex = { viewModel.onRebuildIndex() },
+            onImportSkill = onImportSkill,
         )
 
         searchBar = ChatSearchBar(

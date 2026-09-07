@@ -166,7 +166,29 @@ pipeline, feature dark, unit tests) → **`m7-index-settings-incremental`**
   un-opened file is answered from its actual content; disabling indexing
   reverts context to pre-M7 behavior; M4 mention priority regression-free.
 
-## Session recipe (every coding session)
+### M8 — Agent Skills (three PRs)
+
+Goal: issue #64 — Agent Skills per the [agentskills.io](https://agentskills.io)
+spec, activated in chat via a `/skill-name` slash command, with host-side
+discovery/storage and client-side import. Settings splits into sub-pages
+(root + Prompts + Indexing, now joined by Skills) to make room without one
+page becoming unmanageable.
+
+PR sequence:
+
+| PR | Branch | Scope | Version |
+|---|---|---|---|
+| PR1 | `m8-settings-pages` (#65) | Split the settings root page into sub-pages (Prompts, Indexing carved out of the root page). No wire change. | unchanged |
+| PR2 | `m8-skills-backend` (#66, merged as #68 after a rebase onto the squashed PR1) | `SkillManifestParser` + `SkillStore` (pure) + `SkillDiscoveryService` (@Service PROJECT, VFS-debounced, trust-gated) + `SkillsApi` RPC + Skills settings page. | 0.13.0 |
+| PR3 | `m8-skills-chat` (#67) | `sendMessage(..., skills)`, chat system-prompt injection, `/` popup in the chat input (sticky per tab, clean in new tabs), client-side import button (folder + `.zip`), full user docs. | 0.14.0 |
+
+Acceptance checks per PR:
+
+- **PR1** — the Settings tree shows three children under the root page in both monolithic and split mode; no behavior change otherwise.
+- **PR2** — a `<project>/.claude/skills/demo/SKILL.md` appears in the Skills table with scope Project; adding a `~/.agents/skills/demo` copy of the same name shows a shadow warning on the winning row; an untrusted project hides project-scope skills (user-scope skills still show); toggling a skill's Enabled checkbox persists to `splitModeAssistant.xml`; delete in the toolbar is only enabled for uploaded rows.
+- **PR3** — typing `/` in the chat input opens the skill popup; the active skill is sticky for the rest of that tab's conversation; a new tab starts clean; typing `/nope hi` with no matching skill sends the text as-is; importing a folder or a `.zip` from the client lands under `~/.code-assistant/skills/<name>` on the host; importing a second time over an existing name prompts to overwrite.
+
+
 
 1. `git checkout main && git pull`, branch.
 2. Check `.claude/codemap.md` before exploring; bank new findings after.
@@ -203,6 +225,16 @@ pipeline, feature dark, unit tests) → **`m7-index-settings-incremental`**
 - **2026-08-01 — Template README dropped at import** (approved in the
   P0→M1 execution plan): its RPC-flow walkthrough gets banked into
   `.claude/codemap.md`; a project README comes later.
+- **2026-09-07 — M8 Agent Skills decisions:** skill files cross RPC as base64
+  strings, not `ByteArray` — kotlinx serializes a `ByteArray` as a JSON list
+  of numbers, roughly 4x the payload. Import on the client uses a plain
+  Swing `JFileChooser`, not the IDE `FileChooser`, because in Remote
+  Development the platform file chooser browses the **host** filesystem, not
+  the client machine the user is importing from. Project-level skill
+  discovery is gated on project trust. No YAML library is added — `SKILL.md`
+  frontmatter is parsed by a small hand-written parser, keeping the no-new-
+  deps rule intact. Skill bodies get their own 12,000-character budget,
+  separate from the 24k general context budget.
 
 ## Open decisions (user input wanted)
 
@@ -226,3 +258,6 @@ pipeline, feature dark, unit tests) → **`m7-index-settings-incremental`**
   in popup deferred to M6 polish) ·
   [ ] M5 · [ ] M6 · [~] M7 (PR1 `m7-index-core` open; PR2 settings +
   incremental and PR3 retrieval remain)
+  [x] M8 (all three PRs merged 2026-09-07: #65, #68, #67); follow-up
+  `fix/input-popups` reworked the `@`/`/` popups (above the input, best match
+  at the bottom, keyboard navigation)
