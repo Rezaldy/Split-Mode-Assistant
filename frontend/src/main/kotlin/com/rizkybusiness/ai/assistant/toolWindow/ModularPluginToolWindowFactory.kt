@@ -19,6 +19,7 @@ import com.rizkybusiness.ai.assistant.chatApp.viewmodel.ChatTabRepository
 import com.rizkybusiness.ai.assistant.chatApp.viewmodel.ChatViewModel
 import com.rizkybusiness.ai.assistant.chatApp.viewmodel.FrontendChatRepositoryModel
 import com.rizkybusiness.ai.assistant.chatApp.viewmodel.FrontendIndexModel
+import com.rizkybusiness.ai.assistant.chatApp.viewmodel.FrontendSkillsModel
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -60,6 +61,7 @@ class ModularPluginToolWindowFactory : ToolWindowFactory, DumbAware {
             tabScope,
             ChatTabRepository(project, chatId, tabScope),
             indexModel = FrontendIndexModel.getInstance(project),
+            skillsModel = FrontendSkillsModel.getInstance(project),
         )
 
         val title = ModularPluginFrontendBundle.message("chat.tab.title", tabCounter.incrementAndGet())

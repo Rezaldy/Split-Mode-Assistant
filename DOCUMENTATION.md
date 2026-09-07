@@ -114,6 +114,8 @@ Matching is tried in this order, and results are ranked accordingly:
 
 Results are capped at 20. The search is backed by a cached file list that is invalidated on any VFS change, so it stays fast at keystroke frequency.
 
+The popup ("Select file to add") opens above the input so it never covers what you are typing, with the best match at the bottom, nearest the input. Focus stays in the input: Up/Down move the selection, Enter inserts the selected file, Escape closes the popup, and clicking an entry works too.
+
 Mentions travel with the message as structured attachments, not as text parsed back out of the message body. The referenced files' contents are read on the host at request time.
 
 ## Project indexing (opt-in, local RAG)
@@ -200,17 +202,60 @@ Reasoning tokens never enter the commit message field — only the final message
 
 While a message is being generated, a background progress entry — "Split Mode Assistant: generating commit message…" — appears in the status bar (bottom right). Cancelling it from there stops the generation and keeps whatever text had already streamed into the field.
 
+## Skills
+
+A skill is a folder containing a `SKILL.md` file: frontmatter with a `name` and a `description`, followed by markdown instructions for the model. See the [Agent Skills specification](https://agentskills.io/specification) for the format.
+
+Skills are read on the host from `<project>/.code-assistant/skills`, `.agents/skills`, and `.claude/skills`, and from the same three folders under the host user's home. Project skills override user skills of the same name, and project skills are ignored until the project is trusted.
+
+### Using a skill
+
+Start a chat message with `/` to open a popup ("Select a skill to use") of enabled skills, filtered by name as you type. It behaves like the `@` popup: above the input, best match at the bottom, Up/Down/Enter/Escape without leaving the input. Pick one, or type the full `/skill-name` yourself. Once activated, the skill's instructions are added to the system prompt for the rest of that chat tab — a new tab starts clean. The message text is sent exactly as typed. A `/word` that matches no enabled skill is sent as plain text, not treated as a skill invocation. A skill that gets disabled or deleted between typing and sending produces an error bubble instead of silently sending without it.
+
+### Budget
+
+Skill instructions get their own 12,000-character budget, separate from the 24,000-character project context budget described above. A skill whose instructions exceed the budget is truncated, with a note added so the omission is visible.
+
+### Importing a skill from your machine
+
+The upload button in the tool window header opens a file chooser on *your* computer — the client machine, in Remote Development — never the host's filesystem. It accepts a folder or a `.zip` archive, with `SKILL.md` either at the top level or inside one wrapping folder. Size limits: 512 KB per file, 2 MB total. The imported skill lands in `~/.code-assistant/skills/<name>` on the host. Importing a skill whose name already exists on the host asks for confirmation before replacing it.
+
+### Managing skills
+
+See Settings | Tools | Split Mode Assistant | Skills to enable/disable skills, rescan folders, delete imported skills, and toggle the optional "tell the model" catalog.
+
 ## Settings
 
-Location: **Settings | Tools | Split Mode Assistant** (on the host, in Remote Development).
+Location: **Settings | Tools | Split Mode Assistant** (on the host, in Remote Development), with three sub-pages: **Prompts**, **Indexing**, and **Skills**.
+
+**Split Mode Assistant** (root page)
 
 | Setting | Notes |
 |---|---|
 | Base URL | Default `http://localhost:11434`. The `OLLAMA_BASE_URL` environment variable, if set, overrides and locks this field. |
 | Use IDE proxy | Default off — model sources are usually local or on the LAN. |
 | Context window (`num_ctx`) | Default 16,384, minimum 2,048. Raise it for long conversations or large contexts. |
+
+**Prompts**
+
+| Setting | Notes |
+|---|---|
 | System prompts | Separate fields for chat and commit-message generation. Each field shows the effective prompt; clearing a field and applying restores the built-in default. |
+
+**Indexing**
+
+| Setting | Notes |
+|---|---|
 | Project indexing | Enable toggle, Rebuild button, embedding model selection, and an optional custom embedding URL. |
+
+**Skills**
+
+| Setting | Notes |
+|---|---|
+| Skill list | Discovered skills with an Enabled checkbox, scope (Project/User), and location. A row's tooltip shows warnings such as a shadowed copy or a name/folder mismatch. Toolbar: rescan, open/copy folder, and delete (only for skills imported to the host). |
+| Tell the model which skills exist | Off by default. Adds each enabled skill's name and description to the chat system prompt. |
+
+See [Skills](#skills) above for where skills are discovered, how precedence works, and how to use and import them from the chat.
 
 ### Environment overrides
 
@@ -225,6 +270,8 @@ Read on the host; useful for containerized backends:
 
 Prompts, including file contents placed in context, go only to the configured model source. The project index lives on the host's disk. Nothing is sent anywhere else.
 
+Skill files are read on the host; skills imported through the plugin are stored under the host user's `~/.code-assistant/skills`.
+
 Chat history is held in memory per IDE session, per tab, and is not persisted — it does not survive an IDE restart.
 
 ## Troubleshooting
@@ -237,3 +284,6 @@ Read the note under the reply. If it reports the context window full, raise the 
 
 **Split mode oddities (chat silent, features missing)**
 Confirm the host and client are running the same plugin version. Backend logs are in the host's `idea.log`.
+
+**Skill not listed**
+Check the Skills page (Settings | Tools | Split Mode Assistant | Skills) for a row tooltip explaining why: the project may be untrusted, the skill's frontmatter may be missing a `description`, its `name` may be invalid, or it may simply be disabled. If it isn't listed at all, check the host's `idea.log` for a discovery error.
