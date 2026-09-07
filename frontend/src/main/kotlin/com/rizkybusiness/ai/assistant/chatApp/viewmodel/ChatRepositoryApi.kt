@@ -21,8 +21,13 @@ interface ChatRepositoryApi {
      *
      * @param messageContent The content of the message to be sent.
      * @param attachments Full paths of `@`-mentioned files (structured, not parsed from text).
+     * @param skills Names of skills invoked with a leading `/name` (structured, same reason).
      */
-    suspend fun sendMessage(messageContent: String, attachments: List<String> = emptyList())
+    suspend fun sendMessage(
+        messageContent: String,
+        attachments: List<String> = emptyList(),
+        skills: List<String> = emptyList(),
+    )
 
     /** Stops the backend's in-flight generation (the Stop button); the partial reply stays. */
     suspend fun abortGeneration()

@@ -200,6 +200,28 @@ Reasoning tokens never enter the commit message field — only the final message
 
 While a message is being generated, a background progress entry — "Split Mode Assistant: generating commit message…" — appears in the status bar (bottom right). Cancelling it from there stops the generation and keeps whatever text had already streamed into the field.
 
+## Skills
+
+A skill is a folder containing a `SKILL.md` file: frontmatter with a `name` and a `description`, followed by markdown instructions for the model. See the [Agent Skills specification](https://agentskills.io/specification) for the format.
+
+Skills are read on the host from `<project>/.code-assistant/skills`, `.agents/skills`, and `.claude/skills`, and from the same three folders under the host user's home. Project skills override user skills of the same name, and project skills are ignored until the project is trusted.
+
+### Using a skill
+
+Start a chat message with `/` to open a popup of enabled skills, filtered by name as you type. Pick one, or type the full `/skill-name` yourself. Once activated, the skill's instructions are added to the system prompt for the rest of that chat tab — a new tab starts clean. The message text is sent exactly as typed. A `/word` that matches no enabled skill is sent as plain text, not treated as a skill invocation. A skill that gets disabled or deleted between typing and sending produces an error bubble instead of silently sending without it.
+
+### Budget
+
+Skill instructions get their own 12,000-character budget, separate from the 24,000-character project context budget described above. A skill whose instructions exceed the budget is truncated, with a note added so the omission is visible.
+
+### Importing a skill from your machine
+
+The upload button in the tool window header opens a file chooser on *your* computer — the client machine, in Remote Development — never the host's filesystem. It accepts a folder or a `.zip` archive, with `SKILL.md` either at the top level or inside one wrapping folder. Size limits: 512 KB per file, 2 MB total. The imported skill lands in `~/.code-assistant/skills/<name>` on the host. Importing a skill whose name already exists on the host asks for confirmation before replacing it.
+
+### Managing skills
+
+See Settings | Tools | Split Mode Assistant | Skills to enable/disable skills, rescan folders, delete imported skills, and toggle the optional "tell the model" catalog.
+
 ## Settings
 
 Location: **Settings | Tools | Split Mode Assistant** (on the host, in Remote Development), with three sub-pages: **Prompts**, **Indexing**, and **Skills**.
@@ -231,9 +253,7 @@ Location: **Settings | Tools | Split Mode Assistant** (on the host, in Remote De
 | Skill list | Discovered skills with an Enabled checkbox, scope (Project/User), and location. A row's tooltip shows warnings such as a shadowed copy or a name/folder mismatch. Toolbar: rescan, open/copy folder, and delete (only for skills imported to the host). |
 | Tell the model which skills exist | Off by default. Adds each enabled skill's name and description to the chat system prompt. |
 
-Skills are read on the host from `<project>/.code-assistant/skills`, `.agents/skills`, and `.claude/skills`, and from the same three folders under the host user's home. Project skills override user skills of the same name, and project skills are ignored until the project is trusted.
-
-Using skills from the chat (`/skill-name`) and importing them from your own machine arrive in the next release.
+See [Skills](#skills) above for where skills are discovered, how precedence works, and how to use and import them from the chat.
 
 ### Environment overrides
 
@@ -262,3 +282,6 @@ Read the note under the reply. If it reports the context window full, raise the 
 
 **Split mode oddities (chat silent, features missing)**
 Confirm the host and client are running the same plugin version. Backend logs are in the host's `idea.log`.
+
+**Skill not listed**
+Check the Skills page (Settings | Tools | Split Mode Assistant | Skills) for a row tooltip explaining why: the project may be untrusted, the skill's frontmatter may be missing a `description`, its `name` may be invalid, or it may simply be disabled. If it isn't listed at all, check the host's `idea.log` for a discovery error.
