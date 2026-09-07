@@ -179,8 +179,8 @@ PR sequence:
 | PR | Branch | Scope | Version |
 |---|---|---|---|
 | PR1 | `m8-settings-pages` (#65) | Split the settings root page into sub-pages (Prompts, Indexing carved out of the root page). No wire change. | unchanged |
-| PR2 | `m8-skills-backend` (#66) | `SkillManifestParser` + `SkillStore` (pure) + `SkillDiscoveryService` (@Service PROJECT, VFS-debounced, trust-gated) + `SkillsApi` RPC + Skills settings page. | 0.13.0 |
-| PR3 | `m8-skills-chat` | `sendMessage(..., skills)`, chat system-prompt injection, `/` popup in the chat input (sticky per tab, clean in new tabs), client-side import button (folder + `.zip`), full user docs. | 0.14.0 |
+| PR2 | `m8-skills-backend` (#66, merged as #68 after a rebase onto the squashed PR1) | `SkillManifestParser` + `SkillStore` (pure) + `SkillDiscoveryService` (@Service PROJECT, VFS-debounced, trust-gated) + `SkillsApi` RPC + Skills settings page. | 0.13.0 |
+| PR3 | `m8-skills-chat` (#67) | `sendMessage(..., skills)`, chat system-prompt injection, `/` popup in the chat input (sticky per tab, clean in new tabs), client-side import button (folder + `.zip`), full user docs. | 0.14.0 |
 
 Acceptance checks per PR:
 
@@ -258,5 +258,6 @@ Acceptance checks per PR:
   in popup deferred to M6 polish) ·
   [ ] M5 · [ ] M6 · [~] M7 (PR1 `m7-index-core` open; PR2 settings +
   incremental and PR3 retrieval remain)
-  [~] M8 (PR1 `m8-settings-pages` open as #65; PR2 `m8-skills-backend` open
-  as #66; PR3 `m8-skills-chat` in progress)
+  [x] M8 (all three PRs merged 2026-09-07: #65, #68, #67); follow-up
+  `fix/input-popups` reworked the `@`/`/` popups (above the input, best match
+  at the bottom, keyboard navigation)
