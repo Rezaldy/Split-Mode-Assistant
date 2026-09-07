@@ -202,14 +202,26 @@ While a message is being generated, a background progress entry — "Split Mode 
 
 ## Settings
 
-Location: **Settings | Tools | Split Mode Assistant** (on the host, in Remote Development).
+Location: **Settings | Tools | Split Mode Assistant** (on the host, in Remote Development), with two sub-pages: **Prompts** and **Indexing**.
+
+**Split Mode Assistant** (root page)
 
 | Setting | Notes |
 |---|---|
 | Base URL | Default `http://localhost:11434`. The `OLLAMA_BASE_URL` environment variable, if set, overrides and locks this field. |
 | Use IDE proxy | Default off — model sources are usually local or on the LAN. |
 | Context window (`num_ctx`) | Default 16,384, minimum 2,048. Raise it for long conversations or large contexts. |
+
+**Prompts**
+
+| Setting | Notes |
+|---|---|
 | System prompts | Separate fields for chat and commit-message generation. Each field shows the effective prompt; clearing a field and applying restores the built-in default. |
+
+**Indexing**
+
+| Setting | Notes |
+|---|---|
 | Project indexing | Enable toggle, Rebuild button, embedding model selection, and an optional custom embedding URL. |
 
 ### Environment overrides
