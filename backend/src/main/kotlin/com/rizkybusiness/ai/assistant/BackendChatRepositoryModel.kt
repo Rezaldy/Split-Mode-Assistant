@@ -10,6 +10,7 @@ import com.rizkybusiness.ai.assistant.ollama.OllamaDoneStats
 import com.rizkybusiness.ai.assistant.ollama.OllamaException
 import com.rizkybusiness.ai.assistant.repository.ChatMessageFactory
 import com.rizkybusiness.ai.assistant.settings.AssistantSettings
+import com.rizkybusiness.ai.assistant.skills.SkillDiscoveryService
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.diagnostic.thisLogger
 import com.intellij.openapi.project.Project
@@ -42,6 +43,9 @@ class BackendChatRepositoryModel(
         /** Throttle for pushing partial content into the messages flow (each emission crosses RPC). */
         private const val STREAM_FLUSH_INTERVAL_MS = 100L
         private const val MAX_HISTORY_MESSAGES = 20
+
+        /** Separate from the 24k-char project-context budget; ~3k tokens for all activated skills. */
+        private const val SKILLS_BUDGET_CHARS = 12_000
     }
 
     private val chatMessageFactory = ChatMessageFactory(
@@ -58,8 +62,13 @@ class BackendChatRepositoryModel(
         return conversation(chatId).messages.map { list -> list.map(ChatMessage::toChatMessageDto) }
     }
 
-    suspend fun sendMessage(chatId: String, messageContent: String, attachments: List<String> = emptyList()) {
-        conversation(chatId).sendMessage(messageContent, attachments)
+    suspend fun sendMessage(
+        chatId: String,
+        messageContent: String,
+        attachments: List<String> = emptyList(),
+        skills: List<String> = emptyList(),
+    ) {
+        conversation(chatId).sendMessage(messageContent, attachments, skills)
     }
 
     /** Stops the conversation's in-flight generation; the partial reply stays. */
@@ -80,8 +89,28 @@ class BackendChatRepositoryModel(
         @Volatile
         private var generationJob: Job? = null
 
-        suspend fun sendMessage(messageContent: String, attachments: List<String>) {
+        /**
+         * Skills the user invoked in this conversation, in activation order. Re-injected into
+         * the system message on every turn: history is capped at [MAX_HISTORY_MESSAGES], so
+         * instructions that only lived in an old turn would silently fall out of the prompt.
+         */
+        private val activatedSkills = LinkedHashSet<String>()
+
+        suspend fun sendMessage(messageContent: String, attachments: List<String>, skills: List<String>) {
             messages.value += chatMessageFactory.createUserMessage(messageContent)
+            if (skills.isNotEmpty()) {
+                val known = SkillDiscoveryService.getInstance(project).enabledSkills().map { it.name }.toSet()
+                val unknown = skills.firstOrNull { it !in known }
+                if (unknown != null) {
+                    // The client resolves tokens against its catalog copy, so this only happens
+                    // when a skill was disabled or deleted in between — say so, don't guess.
+                    messages.value += chatMessageFactory.createErrorMessage(
+                        ModularPluginBackendBundle.message("chat.skill.unknown", unknown)
+                    )
+                    return
+                }
+                activatedSkills += skills
+            }
             // Generation must survive the RPC call that started it: in Remote Development a
             // client<->host connection blip cancels in-flight RPC calls while the durable
             // messages flow reconnects seamlessly — pre-detach, that killed the generation
@@ -193,14 +222,73 @@ class BackendChatRepositoryModel(
                 .map { OllamaChatMessage(role = if (it.isMyMessage) "user" else "assistant", content = it.content) }
             val context = ProjectContextCollector.getInstance(project)
                 .collect(question = question, mentionPaths = attachments)
+            val skillBlocks = buildSkillBlocks()
+            val skillCatalog = buildSkillCatalog()
             val systemContent = buildString {
                 append(AssistantSettings.getInstance().effectiveChatSystemPrompt)
+                if (skillBlocks.isNotBlank()) {
+                    append("\n\n").append(skillBlocks)
+                }
+                if (skillCatalog.isNotBlank()) {
+                    append("\n\n").append(skillCatalog)
+                }
                 if (context.isNotBlank()) {
                     append("\n\nProject context (each block is labeled with its source — mentioned, selection, open, or retrieved):\n")
                     append(context)
                 }
             }
             return listOf(OllamaChatMessage("system", systemContent)) + history
+        }
+
+        /**
+         * One `<skill_content>` block per activated skill, bodies re-read from disk each turn,
+         * under their own budget ([SKILLS_BUDGET_CHARS]) so a large skill cannot starve the
+         * project context. A skill deleted or disabled mid-conversation drops out with a log line.
+         */
+        private suspend fun buildSkillBlocks(): String {
+            if (activatedSkills.isEmpty()) return ""
+            val service = SkillDiscoveryService.getInstance(project)
+            var remaining = SKILLS_BUDGET_CHARS
+            val blocks = StringBuilder()
+            for (name in activatedSkills) {
+                if (remaining <= 0) break
+                val body = service.readBody(name)
+                if (body == null) {
+                    thisLogger().info("Skill '$name' is no longer available; dropped from the prompt")
+                    continue
+                }
+                val fits = body.text.length <= remaining
+                val text = if (fits) body.text else body.text.take(remaining)
+                remaining -= text.length
+                blocks.append("<skill_content name=\"").append(name).append("\">\n")
+                    .append("The user invoked this skill with /").append(name)
+                    .append(". Follow these instructions for the rest of the conversation.\n\n")
+                    .append(text)
+                if (!fits || body.truncated) {
+                    blocks.append("\n\n[skill instructions truncated to fit the prompt budget]")
+                }
+                blocks.append("\n</skill_content>\n")
+            }
+            thisLogger().debug("Injecting ${activatedSkills.size} skill(s) (${blocks.length} chars): $activatedSkills")
+            return blocks.toString().trim()
+        }
+
+        /** Optional tier-1 catalog (setting-gated): lets the model suggest a skill; it cannot load one itself. */
+        private suspend fun buildSkillCatalog(): String {
+            if (!AssistantSettings.getInstance().skillsCatalogInPrompt) return ""
+            val skills = SkillDiscoveryService.getInstance(project).enabledSkills()
+                .filter { it.name !in activatedSkills }
+            if (skills.isEmpty()) return ""
+            return buildString {
+                append("<available_skills>\n")
+                append("The user can load any of these skills by starting a message with /skill-name. ")
+                append("Suggest one when it clearly fits the task; you cannot load them yourself.\n")
+                for (skill in skills) {
+                    append("- /").append(skill.name).append(": ")
+                        .append(skill.description.replace('\n', ' ').trim()).append('\n')
+                }
+                append("</available_skills>")
+            }
         }
 
         /** Drops the thinking placeholder and inserts or updates the assistant message by id. */

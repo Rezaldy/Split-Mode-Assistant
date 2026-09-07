@@ -8,6 +8,8 @@ import com.rizkybusiness.ai.assistant.ContextFileDto
 import com.rizkybusiness.ai.assistant.FileRefDto
 import com.rizkybusiness.ai.assistant.IndexStatusDto
 import com.rizkybusiness.ai.assistant.ModelsStateDto
+import com.rizkybusiness.ai.assistant.SkillDto
+import com.rizkybusiness.ai.assistant.SkillsStateDto
 
 interface ChatViewModelApi : Disposable {
     val chatMessagesFlow: StateFlow<List<ChatMessage>>
@@ -30,9 +32,21 @@ interface ChatViewModelApi : Disposable {
     /** null clears results; a query triggers a debounced backend search. */
     fun onMentionQuery(query: String?)
 
+    /** Host catalog of skills; the `/` popup filters it locally, no RPC per keystroke. */
+    val skillsStateFlow: StateFlow<SkillsStateDto>
+
+    /** Results for the `/` skill popup; empty list hides it. */
+    val skillResultsFlow: StateFlow<List<SkillDto>>
+
+    /** null clears results; a query (the text after a leading `/`) filters the cached catalog. */
+    fun onSlashQuery(query: String?)
+
+    /** The skill names to send for a leading `/token`, or empty when it matches no enabled skill. */
+    fun resolveSkillToken(token: String?): List<String>
+
     fun onPromptInputChanged(input: String)
 
-    fun onSendMessage(attachments: List<String> = emptyList())
+    fun onSendMessage(attachments: List<String> = emptyList(), skills: List<String> = emptyList())
 
     fun onAbortSendingMessage()
 
@@ -46,6 +60,7 @@ class ChatViewModel(
     private val repository: ChatRepositoryApi,
     private val modelsModel: FrontendModelsModel = FrontendModelsModel.getInstance(),
     private val indexModel: FrontendIndexModel? = null,
+    private val skillsModel: FrontendSkillsModel? = null,
 ) : ChatViewModelApi {
 
     private val _chatMessagesFlow = MutableStateFlow(emptyList<ChatMessage>())
@@ -101,7 +116,54 @@ class ChatViewModel(
 
     companion object {
         private const val MENTION_SEARCH_DEBOUNCE_MS = 250L
+        private const val MAX_SKILL_RESULTS = 20
+        /** The host's user-home skill folders are not VFS-watched; opening the popup rescans at most this often. */
+        private const val SKILL_REFRESH_THROTTLE_MS = 5_000L
     }
+
+    override val skillsStateFlow: StateFlow<SkillsStateDto> =
+        skillsModel?.stateFlow ?: MutableStateFlow(SkillsStateDto()).asStateFlow()
+
+    private val _skillResults = MutableStateFlow<List<SkillDto>>(emptyList())
+    override val skillResultsFlow: StateFlow<List<SkillDto>> = _skillResults.asStateFlow()
+
+    private var currentSlashQuery: String? = null
+    private var lastSkillRefreshAt = 0L
+
+    override fun onSlashQuery(query: String?) {
+        currentSlashQuery = query
+        if (query == null) {
+            _skillResults.value = emptyList()
+            return
+        }
+        val now = System.currentTimeMillis()
+        if (skillsModel != null && now - lastSkillRefreshAt > SKILL_REFRESH_THROTTLE_MS) {
+            lastSkillRefreshAt = now
+            coroutineScope.launch {
+                try {
+                    skillsModel.refresh()
+                } catch (e: Exception) {
+                    if (e is CancellationException) throw e
+                    // The cached catalog still serves the popup; the backend logs the cause.
+                }
+            }
+        }
+        recomputeSkillResults()
+    }
+
+    private fun recomputeSkillResults() {
+        val query = currentSlashQuery ?: return
+        _skillResults.value = enabledSkills()
+            .filter { it.name.startsWith(query) }
+            .take(MAX_SKILL_RESULTS)
+    }
+
+    override fun resolveSkillToken(token: String?): List<String> {
+        if (token == null) return emptyList()
+        return if (enabledSkills().any { it.name == token }) listOf(token) else emptyList()
+    }
+
+    private fun enabledSkills(): List<SkillDto> = skillsStateFlow.value.skills.filter { it.enabled }
 
     private val _promptInputState = MutableStateFlow<MessageInputState>(MessageInputState.Disabled)
     override val promptInputState: StateFlow<MessageInputState> = _promptInputState.asStateFlow()
@@ -125,6 +187,10 @@ class ChatViewModel(
             .messagesFlow
             .onEach { messages -> _chatMessagesFlow.value = messages }
             .launchIn(coroutineScope)
+        // A catalog that arrives after the user typed "/" must still populate the open popup.
+        skillsStateFlow
+            .onEach { recomputeSkillResults() }
+            .launchIn(coroutineScope)
     }
 
     override fun onPromptInputChanged(input: String) {
@@ -136,13 +202,13 @@ class ChatViewModel(
         }
     }
 
-    override fun onSendMessage(attachments: List<String>) {
+    override fun onSendMessage(attachments: List<String>, skills: List<String>) {
         currentSendMessageJob = coroutineScope.launch {
             try {
                 val currentUserMessage = getCurrentInputTextIfNotEmpty() ?: return@launch
                 emitPromptInputState(MessageInputState.Sending(""))
 
-                repository.sendMessage(currentUserMessage, attachments)
+                repository.sendMessage(currentUserMessage, attachments, skills)
 
                 emitPromptInputState(
                     when (val currentInputState = getCurrentInputTextIfNotEmpty()) {

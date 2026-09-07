@@ -63,6 +63,18 @@ Maintained by the code-recon skill.
   `SkillUploadDto`/`SkillUploadResultDto` in `dtos.kt` (files cross RPC as
   base64, not `ByteArray` — kotlinx encodes `ByteArray` as a JSON number
   list). (verified 2026-09-07)
+- **Slash-command flow (M8 PR3)** — `PromptInput.currentSlashQuery`/
+  `leadingSkillToken` → `ChatViewModel.onSlashQuery`/`resolveSkillToken`
+  (local filter of `FrontendSkillsModel.stateFlow`, no RPC per keystroke)
+  → `ChatViewModelApi.onSendMessage(skills)` →
+  `BackendChatRepositoryModel.Conversation.activatedSkills` +
+  `buildSkillBlocks` (system-prompt injection, sticky per tab).
+  (verified 2026-09-07)
+- **`skills/SkillImporter` (M8 PR3)** — frontend-only, client-local
+  `JFileChooser` (folder or `.zip`) → base64-encoded `SkillFileDto`s in a
+  `SkillUploadDto` → `SkillsApi.uploadSkill`; the one sanctioned filesystem
+  read in `frontend/` because it reads the *client* machine, not the
+  project. `frontend/.../skills/SkillImporter.kt` (verified 2026-09-07)
 - **Settings sub-pages (M8 PR1)** — root id
   `com.rizkybusiness.ai.assistant.settings` on
   `settings/AssistantGeneralConfigurable`; `PromptsConfigurable`,

@@ -11,6 +11,7 @@ import com.intellij.ui.components.JBTextArea
 import com.intellij.util.ui.JBUI
 import com.rizkybusiness.ai.assistant.FileRefDto
 import com.rizkybusiness.ai.assistant.ModularPluginFrontendBundle
+import com.rizkybusiness.ai.assistant.SkillDto
 import com.rizkybusiness.ai.assistant.chatApp.ui.utils.ButtonUtils
 import com.rizkybusiness.ai.assistant.chatApp.ui.utils.ChatAppColors
 import com.rizkybusiness.ai.assistant.chatApp.ui.utils.ChatAppIcons
@@ -33,11 +34,14 @@ import javax.swing.border.LineBorder
 import javax.swing.event.DocumentEvent
 import javax.swing.event.DocumentListener
 
+private const val SKILL_DESCRIPTION_MAX_LENGTH = 80
+
 class PromptInput(
     private val onInputChanged: (String) -> Unit,
     private val onSend: (String) -> Unit,
     private val onStop: (String) -> Unit,
-    private val onMentionQuery: (String?) -> Unit = {}
+    private val onMentionQuery: (String?) -> Unit = {},
+    private val onSlashQuery: (String?) -> Unit = {}
 ) : JPanel() {
 
     private val textArea: JBTextArea
@@ -50,6 +54,7 @@ class PromptInput(
     /** Mention token ("@fileName") → full path; pruned against the text on send. */
     private val mentions = mutableMapOf<String, String>()
     private var mentionPopup: JBPopup? = null
+    private var skillPopup: JBPopup? = null
 
     init {
         setupAppearance()
@@ -129,6 +134,7 @@ class PromptInput(
         val text = textArea.text
         onInputChanged(text)
         onMentionQuery(currentMentionQuery())
+        onSlashQuery(currentSlashQuery())
 
         sendButton.isEnabled = currentState != MessageInputState.Disabled && text.isNotBlank()
     }
@@ -167,13 +173,68 @@ class PromptInput(
         val token = "@${ref.fileName}"
         mentions[token] = ref.path
         textArea.replaceRange("$token ", at, caret)
-        hideMentionPopup()
+        hidePopups()
         textArea.requestFocusInWindow()
     }
 
     private fun hideMentionPopup() {
         mentionPopup?.cancel()
         mentionPopup = null
+    }
+
+    /**
+     * The "/name" token being typed at the caret, or null when the caret isn't inside one.
+     * A skill token must start at position 0 with no whitespace before the caret.
+     */
+    private fun currentSlashQuery(): String? {
+        val caret = textArea.caretPosition.coerceAtMost(textArea.text.length)
+        val upToCaret = textArea.text.substring(0, caret)
+        val match = Regex("^/([a-z0-9-]*)$").matchEntire(upToCaret) ?: return null
+        return match.groupValues[1]
+    }
+
+    fun showSkillResults(results: List<SkillDto>) {
+        hideSkillPopup()
+        if (results.isEmpty() || currentSlashQuery() == null) return
+        skillPopup = JBPopupFactory.getInstance()
+            .createPopupChooserBuilder(results)
+            .setRenderer(SimpleListCellRenderer.create { label, value, _ ->
+                label.text = "/${value.name}  —  ${truncateDescription(value.description)}"
+            })
+            .setRequestFocus(false)
+            .setItemChosenCallback { insertSkill(it) }
+            .createPopup()
+            .also { it.show(RelativePoint.getNorthWestOf(this)) }
+    }
+
+    private fun truncateDescription(description: String): String =
+        if (description.length > SKILL_DESCRIPTION_MAX_LENGTH) {
+            description.take(SKILL_DESCRIPTION_MAX_LENGTH) + "…"
+        } else {
+            description
+        }
+
+    private fun insertSkill(skill: SkillDto) {
+        val caret = textArea.caretPosition.coerceAtMost(textArea.text.length)
+        textArea.replaceRange("/${skill.name} ", 0, caret)
+        hidePopups()
+        textArea.requestFocusInWindow()
+    }
+
+    private fun hideSkillPopup() {
+        skillPopup?.cancel()
+        skillPopup = null
+    }
+
+    private fun hidePopups() {
+        hideMentionPopup()
+        hideSkillPopup()
+    }
+
+    /** The skill name from a leading "/name" token in the trimmed text, or null. Called at send time. */
+    fun leadingSkillToken(): String? {
+        val match = Regex("^/([a-z0-9-]+)(\\s|$)").find(textArea.text.trim()) ?: return null
+        return match.groupValues[1]
     }
 
     /** Paths of mentions still present in the text; called at send time. */
@@ -239,7 +300,7 @@ class PromptInput(
         val text = textArea.text.trim()
         if (text.isEmpty()) return
 
-        hideMentionPopup()
+        hidePopups()
         onSend(text)
         skipInputChangeUpdate = true
         textArea.text = ""
