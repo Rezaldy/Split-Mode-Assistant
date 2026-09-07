@@ -29,7 +29,7 @@ jobs:
         run: ./gradlew build buildPlugin
 
       - name: Upload plugin zip (every build)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: split-mode-assistant
           path: build/distributions/*.zip
