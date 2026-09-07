@@ -34,8 +34,17 @@ interface ChatRepositoryRpcApi : RemoteApi<Unit> {
      * @param messageContent The content of the message to be sent.
      * @param attachments Full paths of `@`-mentioned files; they take priority in the
      *   context budget. Structured on purpose — never parsed back out of the text.
+     * @param skills Names of skills invoked with a leading `/name` in this message. Once
+     *   activated, a skill stays part of the conversation's system prompt until the tab closes.
+     *   Structured for the same reason as [attachments].
      */
-    suspend fun sendMessage(projectId: ProjectId, chatId: String, messageContent: String, attachments: List<String>)
+    suspend fun sendMessage(
+        projectId: ProjectId,
+        chatId: String,
+        messageContent: String,
+        attachments: List<String>,
+        skills: List<String> = emptyList(),
+    )
 
     /**
      * Cancels the in-flight generation of conversation [chatId], if any. Generation runs

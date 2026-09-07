@@ -2,13 +2,21 @@ package com.rizkybusiness.ai.assistant.chatApp
 
 import com.intellij.openapi.application.EDT
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.ui.MessageType
+import com.intellij.openapi.ui.popup.Balloon
+import com.intellij.openapi.ui.popup.JBPopupFactory
+import com.intellij.ui.awt.RelativePoint
 import kotlinx.coroutines.*
 import com.rizkybusiness.ai.assistant.CoroutineScopeHolder
+import com.rizkybusiness.ai.assistant.SkillUploadResultDto
 import com.rizkybusiness.ai.assistant.chatApp.ui.*
 import com.rizkybusiness.ai.assistant.chatApp.ui.utils.ChatAppColors
 import com.rizkybusiness.ai.assistant.chatApp.viewmodel.ChatViewModel
+import com.rizkybusiness.ai.assistant.skills.SkillImporter
 import java.awt.*
 import javax.swing.*
+
+private const val IMPORT_BALLOON_FADEOUT_MS = 6_000L
 
 class ChatAppSample(
     private val viewModel: ChatViewModel,
@@ -21,18 +29,32 @@ class ChatAppSample(
     private val modelsErrorBanner: ModelsErrorBanner
     private val promptInput: PromptInput
 
+    private val uiScope = CoroutineScopeHolder.getInstance(project).createScope(ChatAppSample::class.java.simpleName)
+    private val skillImporter = SkillImporter(project, uiScope)
+
     init {
         setupAppearance()
 
-        toolbar = ChatToolbar(viewModel)
+        toolbar = ChatToolbar(
+            viewModel,
+            onImportSkill = { anchor ->
+                skillImporter.importInteractively(anchor) { result -> showImportResult(anchor, result) }
+            },
+        )
         chatList = ChatList(project)
         contextFilesBar = ContextFilesBar()
         modelsErrorBanner = ModelsErrorBanner()
         promptInput = PromptInput(
             onInputChanged = { text -> viewModel.onPromptInputChanged(text) },
-            onSend = { _ -> viewModel.onSendMessage(promptInput.currentMentionPaths()) },
+            onSend = { _ ->
+                viewModel.onSendMessage(
+                    attachments = promptInput.currentMentionPaths(),
+                    skills = viewModel.resolveSkillToken(promptInput.leadingSkillToken()),
+                )
+            },
             onStop = { _ -> viewModel.onAbortSendingMessage() },
-            onMentionQuery = { query -> viewModel.onMentionQuery(query) }
+            onMentionQuery = { query -> viewModel.onMentionQuery(query) },
+            onSlashQuery = { query -> viewModel.onSlashQuery(query) },
         )
 
         val bottomPanel = JPanel(BorderLayout()).apply {
@@ -59,8 +81,29 @@ class ChatAppSample(
         background = ChatAppColors.Panel.background
     }
 
+    /** Result balloon anchored on the import button; the catalog itself refreshes through the flow. */
+    private fun showImportResult(anchor: JComponent, result: SkillUploadResultDto) {
+        JBPopupFactory.getInstance()
+            .createHtmlTextBalloonBuilder(
+                result.message,
+                if (result.success) MessageType.INFO else MessageType.ERROR,
+                null,
+            )
+            .setFadeoutTime(IMPORT_BALLOON_FADEOUT_MS)
+            .createBalloon()
+            .show(RelativePoint.getSouthOf(anchor), Balloon.Position.below)
+    }
+
     private fun subscribeToViewModelUpdates() {
-        val coroutineScope = CoroutineScopeHolder.getInstance(project).createScope(ChatAppSample::class.java.simpleName)
+        val coroutineScope = uiScope
+
+        coroutineScope.launch {
+            viewModel.skillResultsFlow.collect { results ->
+                withContext(Dispatchers.EDT) {
+                    promptInput.showSkillResults(results)
+                }
+            }
+        }
 
         coroutineScope.launch {
             viewModel.chatMessagesFlow.collect { messages ->
