@@ -35,8 +35,9 @@ class ChatTabRepository(
         }
     }.stateIn(coroutineScope, initialValue = emptyList(), started = SharingStarted.Lazily)
 
-    override suspend fun sendMessage(messageContent: String, attachments: List<String>) {
-        ChatRepositoryRpcApi.getInstance().sendMessage(project.projectId(), chatId, messageContent, attachments)
+    override suspend fun sendMessage(messageContent: String, attachments: List<String>, skills: List<String>) {
+        ChatRepositoryRpcApi.getInstance()
+            .sendMessage(project.projectId(), chatId, messageContent, attachments, skills)
     }
 
     override suspend fun abortGeneration() {

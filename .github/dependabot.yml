@@ -10,6 +10,14 @@ updates:
         patterns:
           - "org.jetbrains.intellij*"
           - "org.jetbrains.kotlin*"
+    ignore:
+      # The `rpc` Gradle plugin (settings.gradle.kts) is a JetBrains-internal
+      # compiler plugin whose version is coupled to the Kotlin version, and it
+      # is only published for the Kotlin versions the modular plugin template
+      # uses. Kotlin is bumped by hand together with `rpc` when following the
+      # template; Dependabot must not propose it alone (see CLAUDE.md trap 2).
+      - dependency-name: "org.jetbrains.kotlin.jvm"
+      - dependency-name: "org.jetbrains.kotlin.plugin.serialization"
 
   - package-ecosystem: "github-actions"
     directory: "/"
