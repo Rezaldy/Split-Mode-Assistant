@@ -20,6 +20,8 @@ import java.awt.Dimension
 import java.awt.event.ItemEvent
 import javax.swing.Box
 import javax.swing.BoxLayout
+import javax.swing.JButton
+import javax.swing.JComponent
 import javax.swing.JPanel
 import javax.swing.border.CompoundBorder
 
@@ -28,6 +30,7 @@ class ChatHeader(
     private val onModelSelected: (String) -> Unit,
     private val onRefreshModels: () -> Unit,
     private val onRebuildIndex: () -> Unit,
+    private val onImportSkill: (JComponent) -> Unit,
 ) : JPanel() {
     private var searchVisible = false
     private val modelCombo = ComboBox<String>()
@@ -38,6 +41,7 @@ class ChatHeader(
     ) {
         onRebuildIndex()
     }.apply { isVisible = false }
+    private lateinit var importButton: JButton
 
     companion object {
         private val SYNC_HEALTHY = JBColor(Color(0x2E7D32), Color(0x499C54))
@@ -92,6 +96,14 @@ class ChatHeader(
         add(modelCombo)
         add(createRefreshButton())
         add(indexSyncButton)
+        importButton = ButtonUtils.createActionButton(
+            icon = AllIcons.Actions.Upload,
+            tooltip = ModularPluginFrontendBundle.message("chat.skills.import"),
+            size = ChatUIConstants.Button.LARGE_ACTION_BUTTON_SIZE,
+        ) {
+            onImportSkill(importButton)
+        }
+        add(importButton)
         add(Box.createHorizontalStrut(JBUI.scale(ChatUIConstants.Spacing.MEDIUM)))
         add(createSearchButton())
     }

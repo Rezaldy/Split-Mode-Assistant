@@ -36,6 +36,7 @@ Type `@` in the input to attach a project file. Select code in the editor to hav
 - Per-reply token usage display
 - Commit-message generation button in the commit toolbar
 - Customizable system prompts
+- Agent Skills: `/skill-name` slash commands backed by SKILL.md folders (project, host home, `.agents`/`.claude` compatible), importable from your machine in Remote Development
 
 ## Learn more
 
