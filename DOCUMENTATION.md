@@ -114,6 +114,8 @@ Matching is tried in this order, and results are ranked accordingly:
 
 Results are capped at 20. The search is backed by a cached file list that is invalidated on any VFS change, so it stays fast at keystroke frequency.
 
+The popup ("Select file to add") opens above the input so it never covers what you are typing, with the best match at the bottom, nearest the input. Focus stays in the input: Up/Down move the selection, Enter inserts the selected file, Escape closes the popup, and clicking an entry works too.
+
 Mentions travel with the message as structured attachments, not as text parsed back out of the message body. The referenced files' contents are read on the host at request time.
 
 ## Project indexing (opt-in, local RAG)
@@ -208,7 +210,7 @@ Skills are read on the host from `<project>/.code-assistant/skills`, `.agents/sk
 
 ### Using a skill
 
-Start a chat message with `/` to open a popup of enabled skills, filtered by name as you type. Pick one, or type the full `/skill-name` yourself. Once activated, the skill's instructions are added to the system prompt for the rest of that chat tab — a new tab starts clean. The message text is sent exactly as typed. A `/word` that matches no enabled skill is sent as plain text, not treated as a skill invocation. A skill that gets disabled or deleted between typing and sending produces an error bubble instead of silently sending without it.
+Start a chat message with `/` to open a popup ("Select a skill to use") of enabled skills, filtered by name as you type. It behaves like the `@` popup: above the input, best match at the bottom, Up/Down/Enter/Escape without leaving the input. Pick one, or type the full `/skill-name` yourself. Once activated, the skill's instructions are added to the system prompt for the rest of that chat tab — a new tab starts clean. The message text is sent exactly as typed. A `/word` that matches no enabled skill is sent as plain text, not treated as a skill invocation. A skill that gets disabled or deleted between typing and sending produces an error bubble instead of silently sending without it.
 
 ### Budget
 
