@@ -27,6 +27,10 @@ class AssistantSettings : PersistentStateComponent<AssistantSettings.State> {
         /** Blank = use the built-in default prompt. */
         var chatSystemPrompt: String = ""
         var commitSystemPrompt: String = ""
+        /** Skill names the user switched off; everything discovered is on by default. */
+        var disabledSkills: MutableList<String> = mutableListOf()
+        /** Advertise enabled skills (name + description) in the chat system prompt. Off by default: costs tokens. */
+        var skillsCatalogInPrompt: Boolean = false
     }
 
     private var state = State()
@@ -148,4 +152,20 @@ class AssistantSettings : PersistentStateComponent<AssistantSettings.State> {
         get() = (embeddingBaseUrlEnvOverride
             ?: state.embeddingBaseUrl.takeIf { it.isNotBlank() }
             ?: effectiveBaseUrl).trimEnd('/')
+
+    fun isSkillEnabled(name: String): Boolean = name !in state.disabledSkills
+
+    /** Names of skills the user switched off; stored sorted for a stable settings file. */
+    var disabledSkillNames: Set<String>
+        get() = state.disabledSkills.toSet()
+        set(value) {
+            state.disabledSkills = value.sorted().toMutableList()
+        }
+
+    /** Whether the chat system prompt lists the enabled skills so the model can suggest one. */
+    var skillsCatalogInPrompt: Boolean
+        get() = state.skillsCatalogInPrompt
+        set(value) {
+            state.skillsCatalogInPrompt = value
+        }
 }
