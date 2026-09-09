@@ -18,6 +18,10 @@ updates:
       # template; Dependabot must not propose it alone (see CLAUDE.md trap 2).
       - dependency-name: "org.jetbrains.kotlin.jvm"
       - dependency-name: "org.jetbrains.kotlin.plugin.serialization"
+      # kotlinx-serialization is compileOnly in frontend/ and must match the
+      # version bundled by the IntelliJ Platform (IU-2026.1 ships 1.9.0).
+      # It moves only together with intellijPlatformVersion, never alone.
+      - dependency-name: "org.jetbrains.kotlinx:kotlinx-serialization-*"
 
   - package-ecosystem: "github-actions"
     directory: "/"
