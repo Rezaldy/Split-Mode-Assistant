@@ -1,6 +1,8 @@
 package com.rizkybusiness.ai.assistant.chatApp.ui
 
 import com.intellij.openapi.project.Project
+import com.intellij.ui.SimpleTextAttributes
+import com.intellij.ui.components.JBPanelWithEmptyText
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.util.ui.JBUI
 import com.rizkybusiness.ai.assistant.ChatMessage
@@ -15,7 +17,6 @@ import java.awt.Rectangle
 import java.awt.event.ComponentAdapter
 import java.awt.event.ComponentEvent
 import javax.swing.Box
-import javax.swing.JLabel
 import javax.swing.JPanel
 import javax.swing.JScrollPane
 
@@ -81,13 +82,14 @@ class ChatList(private val project: Project? = null) : JPanel() {
         viewport.background = ChatAppColors.Panel.background
     }
 
-    private fun createEmptyPlaceholder() = JPanel(GridBagLayout()).apply {
+    private fun createEmptyPlaceholder() = JBPanelWithEmptyText().apply {
         background = ChatAppColors.Panel.background
-        add(
-            JLabel(ModularPluginFrontendBundle.message("chat.start.conversation")).apply {
-                foreground = ChatAppColors.Text.disabled
-                font = font.deriveFont(16f)
-            }
+        isOpaque = true
+        emptyText.text = ModularPluginFrontendBundle.message("chat.empty.title")
+        emptyText.appendSecondaryText(
+            ModularPluginFrontendBundle.message("chat.empty.hint"),
+            SimpleTextAttributes.GRAYED_ATTRIBUTES,
+            null
         )
         isVisible = true
     }
