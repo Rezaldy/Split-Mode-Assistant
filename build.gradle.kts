@@ -20,6 +20,15 @@ subprojects {
     apply(plugin = "rpc")
     apply(plugin = "org.jetbrains.kotlin.jvm")
     apply(plugin = "org.jetbrains.kotlin.plugin.serialization")
+
+    // Platform interfaces (ToolWindowFactory, ...) are compiled with JVM default methods. In
+    // the compiler's default compatibility mode our implementing classes get bridge methods
+    // for every default we don't override, and the Plugin Verifier then reports those
+    // bridges as "deprecated/experimental API overridden". No-compatibility mode inherits the
+    // defaults instead; nothing consumes this plugin's classes as a library.
+    tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+        compilerOptions.freeCompilerArgs.add("-jvm-default=no-compatibility")
+    }
 }
 
 dependencies {

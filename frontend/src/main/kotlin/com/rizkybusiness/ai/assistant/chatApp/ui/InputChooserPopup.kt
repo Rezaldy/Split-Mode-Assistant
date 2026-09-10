@@ -1,7 +1,7 @@
 package com.rizkybusiness.ai.assistant.chatApp.ui
 
 import com.intellij.openapi.ui.popup.JBPopup
-import com.intellij.openapi.ui.popup.JBPopupFactory
+import com.intellij.openapi.ui.popup.PopupChooserBuilder
 import com.intellij.ui.CollectionListModel
 import com.intellij.ui.SimpleListCellRenderer
 import com.intellij.ui.awt.RelativePoint
@@ -49,8 +49,7 @@ class InputChooserPopup<T>(
 
         val current = popup
         if (current == null || !isShowing) {
-            popup = JBPopupFactory.getInstance()
-                .createListPopupBuilder(list)
+            popup = PopupChooserBuilder(list)
                 .setTitle(title)
                 .setRequestFocus(false)
                 .setMovable(false)
