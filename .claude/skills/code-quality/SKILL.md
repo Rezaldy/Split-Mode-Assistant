@@ -9,6 +9,15 @@ Systematic quality pass for this plugin's code. `/boundary-check` answers
 "is this code in the right module?"; this skill answers "is it good code
 for a JetBrains plugin?". Run both before a milestone PR.
 
+## Step 0: scope gate
+
+This review applies to Kotlin/Java source only. Before anything else, list
+the changed files (`git diff --name-only main...HEAD` plus uncommitted
+changes, or the delegated diff under review). If none of them end in `.kt`
+or `.java`, stop here and report exactly: `code-quality: skipped, no
+Kotlin/Java changes`. Do not read the checklist, do not review markdown,
+XML, Gradle, or `.claude/` files under this skill.
+
 ## Review strategy
 
 1. **Quick scan** — understand intent and scope of the change.
