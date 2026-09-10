@@ -211,7 +211,7 @@ Skills are read on the host from `<project>/.code-assistant/skills`, `.agents/sk
 
 ### Using a skill
 
-Start a chat message with `/` to open a popup ("Select a skill to use") of enabled skills, filtered by name as you type. It behaves like the `@` popup: above the input, best match at the bottom, Up/Down/Enter/Escape without leaving the input. Pick one, or type the full `/skill-name` yourself. Once activated, the skill's instructions are added to the system prompt for the rest of that chat tab — a new tab starts clean. The message text is sent exactly as typed. A `/word` that matches no enabled skill is sent as plain text, not treated as a skill invocation. A skill that gets disabled or deleted between typing and sending produces an error bubble instead of silently sending without it.
+Start a chat message with `/` to open a popup ("Select a skill to use") of enabled skills, filtered by name as you type. It behaves like the `@` popup: above the input, best match at the bottom, Up/Down/Enter/Escape without leaving the input. Pick one, or type the full `/skill-name` yourself. Once activated, the skill's instructions are added to the system prompt for the rest of that chat tab — a new tab starts clean. The message text is sent exactly as typed. A `/word` that matches no enabled skill is sent as plain text, not treated as a skill invocation. A skill that gets disabled or deleted between typing and sending produces an error bubble instead of silently sending without it. A skill that becomes unavailable mid-conversation — its `SKILL.md` removed or made invalid after activation — produces an error bubble once and is dropped from that tab; re-invoking `/skill-name` re-enables it.
 
 ### Budget
 
@@ -223,7 +223,7 @@ The upload button in the tool window header opens a file chooser on *your* compu
 
 ### Managing skills
 
-See Settings | Tools | Split Mode Assistant | Skills to enable/disable skills, rescan folders, delete imported skills, and toggle the optional "tell the model" catalog.
+See Settings | Tools | Split Mode Assistant | Skills to enable/disable skills, rescan folders, delete imported skills, and toggle the optional "tell the model" catalog. A skill folder whose `SKILL.md` is missing, invalid, or too large is listed below the table as "Skipped `<folder>` (`<scope>`): `<reason>`" instead of silently vanishing from the catalog.
 
 ## Settings
 
