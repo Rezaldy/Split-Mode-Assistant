@@ -32,6 +32,17 @@ Before writing anything, read how an existing interface (start with
 `ChatApi`) is declared and registered — the template already implements the
 whole pattern; extend it, don't reinvent it.
 
+## Hand-off point
+
+Step 1 (the `@Rpc` interface, DTO shapes, and any version bump) is reserved
+for the main session. Steps 2 and 3 are delegated to `plugin-engineer` with
+a brief naming the method, the DTO, the existing implementation class to
+extend, and the existing frontend call site to copy — unless the method
+returns a `Flow` or needs new streaming/coroutine-scope handling, in which
+case the backend `Flow` part stays with the main session and only the
+frontend/UI/bundle-string parts are delegated. The main session reviews the
+delegated diff with `/boundary-check` + `/code-quality` before the PR.
+
 ## Step 2: backend/ — implementation
 
 1. Implement the method in the existing backend implementation of that
@@ -69,3 +80,4 @@ whole pattern; extend it, don't reinvent it.
    RPC boundary is correct.
 4. Run the boundary-check skill (or the `boundary-guard` agent for large
    changes) before committing.
+5. Delegation line written for the PR description.
