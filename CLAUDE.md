@@ -86,22 +86,36 @@ Sandbox testing needs Ollama reachable from the machine running the *backend* pr
 
 - Start every unit of work on a branch cut from up-to-date `main`. Naming: `m<N>-<slug>` for milestone work (e.g. `m1-ollama-client`), `fix/<slug>`, `docs/<slug>`.
 - One coherent change per PR — a milestone, a fix, a doc update. Don't bundle unrelated changes.
-- Open PRs with `gh pr create`. The description states what changed and why, which verification steps ran (build, run modes, `verifyPlugin` where applicable), and the written justification for any new external dependency.
+- Open PRs with `gh pr create`. The description states what changed and why, which verification steps ran (build, run modes, `verifyPlugin` where applicable), a `Delegation:` line per the hand-off rule below, and the written justification for any new external dependency.
 - PRs are reviewed and merged by the user — never self-merge without explicit instruction.
 - The milestone rule follows: a milestone is "done" when its PR is merged, and milestone N+1 starts from the merged state of N.
 
 ## Model tiering (who does what work)
 
-- The **main session** (Fable/Opus-class) plans, designs RPC surfaces, reviews all delegated work, and personally handles the subtle parts: split-mode wiring, coroutine/streaming logic, Gradle/build changes, debugging, anything where monolithic-vs-split behavior could differ.
-- **Sonnet is the default implementer for routine work** — delegate via the `plugin-engineer` agent when the design is decided and an existing pattern shows the way: bundle strings, DTO fields with defaults, UI components copying an existing pattern, mechanical refactors/renames, docs/tracker updates, test boilerplate. It escalates back instead of improvising on anything subtle.
-- **Haiku navigates** (`codebase-navigator`); review/diagnosis agents (`boundary-guard`, `multi-ide-auditor`, `gradle-doctor`) run on Sonnet.
-- Delegated changes never go straight into a PR: the main session reviews the diff (`/boundary-check` + `/code-quality`) first. Delegation saves cost, not scrutiny.
+**Hand-off rule (strict).** Fable-level tokens are the scarce resource. The main session (Fable/Opus-class) does not write code that a smaller model can write from a brief. This is a prohibition, not a default.
+
+1. **Classify before editing.** Before the main session edits any file, it classifies the step as *reserved* or *delegated*. No edit without a classification.
+2. **Reserved for the main session** (the only code it writes itself):
+   - designing or changing the RPC surface (`@Rpc` interfaces, DTO shapes, version bumps that follow);
+   - coroutine / `Flow` / streaming logic that is not a copy of an established pattern;
+   - split-mode wiring and anything where monolithic-vs-split behavior could differ;
+   - Gradle, `settings.gradle.kts`, run configurations, and module descriptor XML;
+   - debugging whose cause is not yet pinned to specific files;
+   - reviewing every delegated diff (`/boundary-check` + `/code-quality`) before it enters a PR.
+3. **Everything else is delegated** to `plugin-engineer` (Sonnet) with a short brief: the files to touch, the pattern to copy, and the acceptance check. This includes bundle strings, settings fields, DTO fields with defaults, UI components copying an existing pattern, mechanical refactors and renames, threading a parameter through existing code, docs and tracker updates, `DOCUMENTATION.md` / `README.md` edits, and test boilerplate. `plugin-engineer` escalates back instead of improvising on anything from the reserved list.
+4. **No speed exception.** "It is faster to do it myself" and "it is only a few lines" are not exceptions. The only exception is a step that cannot be specified without doing it, which by definition is reserved work.
+5. **Mixed features** are split, not absorbed: the main session writes the reserved core first (usually the `shared/` contract and the streaming or wiring part), then briefs the scaffolding, UI copy, strings, docs, and tests out to `plugin-engineer`.
+6. **Auditable in every PR.** The PR description carries a `Delegation:` line listing which steps were reserved and which were delegated (and to which agent). A PR that touched non-reserved files with no delegated steps must say why.
+7. **Navigation and review tiers.** Haiku navigates (`codebase-navigator`); review and diagnosis agents (`boundary-guard`, `multi-ide-auditor`, `gradle-doctor`) run on Sonnet. The main session reads a map, not file dumps.
+
+Delegation saves cost, not scrutiny: delegated changes never go straight into a PR without the main session's review.
 
 ## Conventions
 
 - **`DOCUMENTATION.md` is the definition of the application** — what it does, how context assembly and indexing work, where user data (index, settings) lives, and every user-visible feature. Any PR that changes that definition — a feature added or removed, a default changed, a storage location moved, context/priority rules adjusted — updates `DOCUMENTATION.md` in the same PR. Checking it is part of every milestone's and feature PR's definition of done; keeping it accurate is a docs task (delegable), verifying it happened is the reviewer's job.
 - **`README.md` is the front door, kept deliberately thin**: what the plugin is, requirements, install, quick start, and a pointer to `DOCUMENTATION.md` for everything else. It must be updated in the same PR only when setup steps, requirements, or the headline feature list change — detail changes belong in `DOCUMENTATION.md`, never duplicated into the README.
 - Kotlin, official code style. Coroutines + `Flow` for anything async; no raw threads.
+- **Code review passes are scoped to source changes.** `/code-quality` runs only when the diff touches `.kt`/`.java` files; `/boundary-check` runs only when it touches `.kt`/`.java` files or a descriptor under `resources/META-INF/`. Docs-only, `.claude/`-only, and Gradle-only PRs skip both (Gradle changes are reviewed by the main session directly). Each skill reports `skipped` explicitly rather than silently not running. CI applies the same rule: the `build` job always reports (it is a required check) but only runs Gradle when a file that affects the build changed.
 - Dependencies: platform-provided only (`kotlinx.serialization`, coroutines ship with the platform). Adding any external library requires a written justification in the PR description.
 - All user-visible strings in a message bundle from day one (cheap now, painful later).
 - Errors from the model source must surface in the chat UI as a distinct error bubble (connection refused, model not found, stream aborted) — never swallowed into logs only.

@@ -16,19 +16,61 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          # Full history so the change detection below can diff against the
+          # PR base / previous main tip.
+          fetch-depth: 0
+
+      # `build` is a required status check, so this job must always report a
+      # conclusion. Instead of skipping the job, detect whether anything that
+      # affects the build changed and gate the expensive steps on it. Docs,
+      # .claude/ config, and repo metadata never trigger a Gradle run.
+      - name: Detect source changes
+        id: changes
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          set -eu
+          build=true
+          if [ "$EVENT" = pull_request ] || { [ "$EVENT" = push ] && [ "$GITHUB_REF_TYPE" = branch ]; }; then
+            if [ -n "$BASE" ] && ! echo "$BASE" | grep -Eq '^0+$' && git cat-file -e "$BASE" 2>/dev/null; then
+              if [ "$EVENT" = pull_request ]; then
+                changed=$(git diff --name-only "$BASE...$GITHUB_SHA")
+              else
+                changed=$(git diff --name-only "$BASE" "$GITHUB_SHA")
+              fi
+              # Paths that never affect the build. Everything else (Kotlin, Java,
+              # Gradle, resources, wrapper, this workflow) triggers a full run.
+              source=$(printf '%s\n' "$changed" | grep -Ev \
+                '(\.md$|^\.claude/|^\.run/|^\.idea/|^LICENSE$|^\.gitignore$|^\.gitattributes$|^\.github/(CODEOWNERS|dependabot\.yml|PULL_REQUEST_TEMPLATE\.md|ISSUE_TEMPLATE/))' || true)
+              if [ -z "$source" ]; then
+                build=false
+                echo "::notice::No source changes; skipping Gradle build."
+              fi
+              printf 'Changed files:\n%s\n' "$changed"
+            else
+              echo "No usable base commit ($BASE); building."
+            fi
+          fi
+          echo "build=$build" >> "$GITHUB_OUTPUT"
 
       # Platform toolchain requires Java 21 (see codemap gotcha).
       - uses: actions/setup-java@v6
+        if: steps.changes.outputs.build == 'true'
         with:
           distribution: temurin
           java-version: 21
 
       - uses: gradle/actions/setup-gradle@v6
+        if: steps.changes.outputs.build == 'true'
 
       - name: Build, test, package
+        if: steps.changes.outputs.build == 'true'
         run: ./gradlew build buildPlugin
 
       - name: Upload plugin zip (every build)
+        if: steps.changes.outputs.build == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: split-mode-assistant
