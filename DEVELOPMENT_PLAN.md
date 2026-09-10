@@ -188,7 +188,36 @@ Acceptance checks per PR:
 - **PR2** — a `<project>/.claude/skills/demo/SKILL.md` appears in the Skills table with scope Project; adding a `~/.agents/skills/demo` copy of the same name shows a shadow warning on the winning row; an untrusted project hides project-scope skills (user-scope skills still show); toggling a skill's Enabled checkbox persists to `splitModeAssistant.xml`; delete in the toolbar is only enabled for uploaded rows.
 - **PR3** — typing `/` in the chat input opens the skill popup; the active skill is sticky for the rest of that tab's conversation; a new tab starts clean; typing `/nope hi` with no matching skill sends the text as-is; importing a folder or a `.zip` from the client lands under `~/.code-assistant/skills/<name>` on the host; importing a second time over an existing name prompts to overwrite.
 
+### M9 — skill-driven audits (two PRs; planned 2026-09-10)
 
+Background: the project's Claude skill set was pruned and extended on
+2026-09-10 (PR #72 added `jetbrains-ui-design` and `plugin-logging`, and
+started tracking `defuddle` and `design-patterns` in git). That raised the
+question of whether the plugin itself should be redesigned around the new
+skills — assessed and answered **no**: the architecture (split-mode
+boundary, thin frontend, single Ollama provider, no new dependencies) is
+the product, and the skills were pruned to fit it, not the other way
+around. Two of the skills do justify targeted audits of existing code,
+which is M9. Explicitly out of scope: a provider Strategy/Factory
+abstraction (CLAUDE.md is clear — one provider, done well) and refactoring
+`ProjectContextCollector.assemble` into a list of context contributors
+(only worth it once a second context source actually exists).
+
+PR sequence:
+
+| PR | Branch | Scope | Version |
+|---|---|---|---|
+| PR1 | `m9-ui-polish` | UI critique pass following the `jetbrains-ui-design` skill's process (brief → wireframe → review against the guidelines digest → build → screenshot critique in light/dark themes and at narrow tool-window width). Known findings to fix: hardcoded font sizes (`ChatList.kt`'s `createEmptyPlaceholder` uses `deriveFont(16f)`, `ChatToolbar.kt` uses `deriveFont(12f)`) replaced by `JBFont` roles; the raw RGB `JBColor` pairs in `ChatAppColors` that carry meaning (bubble, error, selection) become `JBColor.namedColor("CodeAssistant.<Component>.<property>", …)` keys so themes can override them; the index sync-dot colors defined inline in `ChatHeader` move into `ChatAppColors`; the empty state (currently a single disabled label) follows the empty-state guideline — state what is missing plus one action link. Then "remove one thing". | unchanged (no wire change) |
+| PR2 | `m9-logging-audit` | Sweep every `thisLogger()` call against the `plugin-logging` skill: level rules (warn+throwable for environment failures, info for state transitions, error only for plugin bugs), stable line shape, no payloads. Known finding: `BackendModelsService` logs model-discovery failure at info with only `e.message` and no throwable. | unchanged |
+
+Acceptance checks per PR:
+
+- **PR1** — no `deriveFont(<number>f)`, `Font(`, or `Color(` outside `ChatAppColors` anywhere in `frontend/` (grep-checkable); every state-carrying color is a named color with IntelliJ Light and Darcula fallbacks; the tool window screenshot-checked in light and dark and at narrow width; `/boundary-check` + `/code-quality` clean; `DOCUMENTATION.md` updated only if a user-visible behavior changes.
+- **PR2** — every warn on a caught exception passes the throwable; no prompt text, file contents, or model replies appear in any log line; `/code-quality` clean.
+
+**Exit:** both PRs merged. Both are delegable to `plugin-engineer` with the
+main session reviewing — no reserved work here (no RPC, Gradle, or
+streaming changes in either PR).
 
 1. `git checkout main && git pull`, branch.
 2. Check `.claude/codemap.md` before exploring; bank new findings after.
@@ -235,6 +264,16 @@ Acceptance checks per PR:
   frontmatter is parsed by a small hand-written parser, keeping the no-new-
   deps rule intact. Skill bodies get their own 12,000-character budget,
   separate from the 24k general context budget.
+- **2026-09-10 — No redesign for the new skills:** assessed the plugin
+  against `jetbrains-ui-design`, `design-patterns`, `plugin-logging`, and
+  `defuddle`; the answer is two targeted audits (M9), not a redesign — the
+  provider abstraction stays out.
+- **2026-09-10 — Context-size indicator = the per-reply token footer:** M6
+  asked for a "context-size indicator"; PR #42's token-usage footer (`N in
+  · M out · P% of num_ctx`) is that indicator. A second, pre-send
+  character-budget readout in the context files bar is deliberately not
+  added — one indicator is enough, and the 24k-char budget is an
+  implementation detail already documented in `DOCUMENTATION.md`.
 
 ## Open decisions (user input wanted)
 
@@ -256,8 +295,19 @@ Acceptance checks per PR:
   [x] M4 (@ mentions: FileSearchApi, popup, structured attachments,
   mention-priority budget; split-mode manual check pending; keyboard nav
   in popup deferred to M6 polish) ·
-  [ ] M5 · [ ] M6 · [~] M7 (PR1 `m7-index-core` open; PR2 settings +
-  incremental and PR3 retrieval remain)
+  [~] M5 (in progress on `m5-multi-ide`: `pluginVerification` now lists
+  IntelliJ IDEA Ultimate, PyCharm Professional, and WebStorm — all
+  `intellijPlatformVersion`; verifier run + `multi-ide-auditor` sweep in
+  flight; PyCharm smoke test by the user pending) ·
+  [x] M6 (delivered across PR #45 and PR #52 — Stop aborts the backend
+  generation; PR #46 — chat tabs, per-tab history; PR #42 — token-usage
+  footer as the context-size indicator, see decision above; split-mode
+  manual regression pass pending) ·
+  [x] M7 (all three PRs merged: #16 index core, #20 settings + incremental +
+  notifications, #22 retrieval into the budget; hardened by #32 — sync
+  indicator + rebuild from chat — and #33 — retry + startup reconciliation;
+  split-mode manual check pending) ·
   [x] M8 (all three PRs merged 2026-09-07: #65, #68, #67); follow-up
   `fix/input-popups` reworked the `@`/`/` popups (above the input, best match
-  at the bottom, keyboard navigation)
+  at the bottom, keyboard navigation) ·
+  [ ] M9 (planned; see §M9)
