@@ -265,18 +265,22 @@ class BackendChatRepositoryModel(
         /**
          * One `<skill_content>` block per activated skill, bodies re-read from disk each turn,
          * under their own budget ([SKILLS_BUDGET_CHARS]) so a large skill cannot starve the
-         * project context. A skill deleted or disabled mid-conversation drops out with a log line.
+         * project context. A skill deleted or disabled mid-conversation drops out and gets a
+         * one-time error bubble ([ModularPluginBackendBundle.message] `chat.skill.dropped`); it
+         * stays out of [activatedSkills] until re-invoked with `/name`.
          */
         private suspend fun buildSkillBlocks(): String {
             if (activatedSkills.isEmpty()) return ""
             val service = SkillDiscoveryService.getInstance(project)
             var remaining = SKILLS_BUDGET_CHARS
             val blocks = StringBuilder()
-            for (name in activatedSkills) {
+            val dropped = mutableListOf<String>()
+            for (name in activatedSkills.toList()) {
                 if (remaining <= 0) break
                 val body = service.readBody(name)
                 if (body == null) {
                     thisLogger().info("Skill '$name' is no longer available; dropped from the prompt")
+                    dropped += name
                     continue
                 }
                 val fits = body.text.length <= remaining
@@ -290,6 +294,12 @@ class BackendChatRepositoryModel(
                     blocks.append("\n\n[skill instructions truncated to fit the prompt budget]")
                 }
                 blocks.append("\n</skill_content>\n")
+            }
+            for (name in dropped) {
+                messages.value += chatMessageFactory.createErrorMessage(
+                    ModularPluginBackendBundle.message("chat.skill.dropped", name)
+                )
+                activatedSkills -= name
             }
             thisLogger().debug { "Injecting ${activatedSkills.size} skill(s) (${blocks.length} chars): $activatedSkills" }
             return blocks.toString().trim()
