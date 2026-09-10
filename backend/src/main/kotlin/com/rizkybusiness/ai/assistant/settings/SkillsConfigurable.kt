@@ -2,6 +2,7 @@ package com.rizkybusiness.ai.assistant.settings
 
 import com.rizkybusiness.ai.assistant.ModularPluginBackendBundle
 import com.rizkybusiness.ai.assistant.SkillDto
+import com.rizkybusiness.ai.assistant.SkillProblemDto
 import com.rizkybusiness.ai.assistant.skills.SkillDiscoveryService
 import com.rizkybusiness.ai.assistant.skills.SkillLocations
 import com.rizkybusiness.ai.assistant.skills.SkillStore
@@ -17,14 +18,17 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.Messages
 import com.intellij.ui.ToolbarDecorator
 import com.intellij.ui.components.JBCheckBox
+import com.intellij.ui.components.JBLabel
 import com.intellij.ui.table.JBTable
 import com.intellij.util.ui.FormBuilder
+import com.intellij.util.ui.JBFont
 import com.intellij.util.ui.JBUI
 import java.awt.BorderLayout
 import java.awt.Component
 import java.awt.datatransfer.StringSelection
 import java.awt.event.MouseEvent
 import java.nio.file.Path
+import javax.swing.BoxLayout
 import javax.swing.JComponent
 import javax.swing.JPanel
 import javax.swing.JTable
@@ -49,6 +53,11 @@ class SkillsConfigurable(private val project: Project) : Configurable {
     private val catalogCheckbox = JBCheckBox(ModularPluginBackendBundle.message("settings.skills.catalog"))
     private val pendingDisabled = mutableSetOf<String>()
     private var lastSkills: List<SkillDto> = emptyList()
+    private var lastProblems: List<SkillProblemDto> = emptyList()
+    private val problemsPanel = JPanel().apply {
+        layout = BoxLayout(this, BoxLayout.Y_AXIS)
+        isVisible = false
+    }
     private var statusTimer: Timer? = null
 
     override fun getDisplayName(): String =
@@ -79,9 +88,14 @@ class SkillsConfigurable(private val project: Project) : Configurable {
             .addComponent(SettingsUi.hintLabel(ModularPluginBackendBundle.message("settings.skills.hint.import")))
             .panel
 
+        val tableAndProblems = JPanel(BorderLayout(0, JBUI.scale(4))).apply {
+            add(decoratedTable, BorderLayout.CENTER)
+            add(problemsPanel, BorderLayout.SOUTH)
+        }
+
         val root = JPanel(BorderLayout(0, JBUI.scale(8))).apply {
             add(hintLabel, BorderLayout.NORTH)
-            add(decoratedTable, BorderLayout.CENTER)
+            add(tableAndProblems, BorderLayout.CENTER)
             add(bottomPanel, BorderLayout.SOUTH)
         }
 
@@ -101,6 +115,24 @@ class SkillsConfigurable(private val project: Project) : Configurable {
         if (snapshot.skills != lastSkills) {
             lastSkills = snapshot.skills
             tableModel.setSkills(snapshot.skills)
+        }
+        if (snapshot.problems != lastProblems) {
+            lastProblems = snapshot.problems
+            problemsPanel.removeAll()
+            for (problem in snapshot.problems) {
+                problemsPanel.add(JBLabel(
+                    ModularPluginBackendBundle.message(
+                        "settings.skills.problem", problem.skillDir, localizedScope(problem.scope), problem.reason,
+                    )
+                ).apply {
+                    icon = AllIcons.General.Warning
+                    font = JBFont.small()
+                    border = JBUI.Borders.empty(2, 0)
+                })
+            }
+            problemsPanel.isVisible = snapshot.problems.isNotEmpty()
+            problemsPanel.revalidate()
+            problemsPanel.repaint()
         }
     }
 
