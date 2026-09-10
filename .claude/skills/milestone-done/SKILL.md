@@ -27,6 +27,10 @@ alone: it hides boundary violations by design.
 
 Also run the boundary-check skill as part of every gate.
 
+`DOCUMENTATION.md` / `README.md` updated for any changed definition —
+delegated to `plugin-engineer` with the list of changed user-visible
+behavior, verified by the main session.
+
 ## Per-milestone acceptance checks
 
 **M0 — template runs.** Plugin id/name renamed everywhere
@@ -72,3 +76,6 @@ persist. New features that break old ones fail the gate.
 End with an explicit verdict: **Mx: DONE** or **Mx: NOT DONE** plus the
 blocking list. Anything that needed a manual step the user hasn't confirmed
 yet is reported as UNVERIFIED, not assumed passing.
+
+The milestone PR description must carry the `Delegation:` line required by
+CLAUDE.md's hand-off rule.
