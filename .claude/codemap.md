@@ -7,102 +7,85 @@ Maintained by the code-recon skill.
 
 ## Architecture anchors
 
-- **Demo/backend responder** — `@Service(PROJECT)` holding
-  `MutableStateFlow<List<ChatMessage>>`; `simulateAIResponse()` posts a
-  thinking message then a canned reply from
-  `repository/AIResponseGenerator.kt`. This is what M1 replaces.
-  `backend/src/main/kotlin/com/rizkybusiness/ai/assistant/BackendChatRepositoryModel.kt`
-  (verified 2026-08-01)
-- **RPC contract** — single `@Rpc` interface, `getMessagesFlow(projectId):
-  Flow<List<ChatMessageDto>>` + `sendMessage(projectId, text)`; resolves
-  itself via `companion.getInstance()` →
-  `RemoteApiProviderService.resolve(remoteApiDescriptor<...>())`.
-  `shared/src/main/kotlin/com/rizkybusiness/ai/assistant/ChatRepositoryRpcApi.kt`
-  (verified 2026-08-01)
+- **RPC contract (M6 — per-conversation)** — `ChatRepositoryRpcApi` is
+  keyed by `(projectId, chatId)`: `getMessagesFlow`, `sendMessage(...,
+  attachments, skills)`, `abortGeneration`, `closeChat`, plus
+  project-scoped `getContextFilesFlow(projectId)`; `chatId` is an opaque
+  id minted by the frontend, one per tab.
+  `shared/.../ChatRepositoryRpcApi.kt` (verified 2026-09-10)
+- **Token footer (M6 context-size indicator)** — per-reply usage in
+  `frontend/.../chatApp/ui/MessageItem.kt` timestamp (`in · out · % of
+  num_ctx`, PR #42) IS the M6 indicator by decision (2026-09-10).
+  `ContextFilesBar` lists file names + source tags, no char count.
 - **Backend RPC registration** — `BackendRpcApiProvider : RemoteApiProvider`
-  registered via EP `platform.rpc.backend.remoteApiProvider` in
+  via EP `platform.rpc.backend.remoteApiProvider` in
   `backend/src/main/resources/code-assistant.backend.xml`. New RPC
-  *methods* need nothing extra; new *interfaces* need a `remoteApi{}` line
-  here + descriptor stays. (verified 2026-08-01)
-- **Models + settings (M2)** — `ModelsApi` (app-scoped, no projectId) in
-  shared; backend `BackendModelsService` (@Service APP + scope) owns
-  discovery/selection state, `AssistantSettings` (@Service APP,
-  PersistentStateComponent, `splitModeAssistant.xml`) persists; selection
-  precedence env > stored > first tag lives in `resolveChatModel()`.
-  Clients come from `OllamaClientService` (URL-keyed cache). Frontend:
-  `FrontendModelsModel` (APP) → `ChatViewModel.modelsStateFlow` → combo in
+  *methods* need nothing extra; new *interfaces* need a `remoteApi{}` line. (verified 2026-08-01)
+- **Models + settings (M2)** — `ModelsApi` (app-scoped) in shared; backend
+  `BackendModelsService` (@Service APP) owns discovery/selection,
+  `AssistantSettings` (@Service APP, PersistentStateComponent) persists;
+  precedence env > stored > first tag in `resolveChatModel()`. Frontend:
+  `FrontendModelsModel` → `ChatViewModel.modelsStateFlow` → combo in
   `ChatHeader.updateModels`. (verified 2026-08-17)
-- **Project index / RAG core (M7 PR1)** — `backend/.../index/`: `Chunker`
-  (pure, line-based, tested), `IndexStore` (meta.json + vectors.bin under
-  `PathManager.getSystemPath()/code-assistant-index/<locationHash>`,
-  model/dims mismatch → null → rebuild), `ProjectIndexService`
-  (@Service PROJECT + scope; caps 4k files/25k chunks visible in status;
-  hash-skip reuse; sequential embed batches of 16; flush per 500 chunks).
-  Feature dark until PR2 (settings/IndexApi) + PR3 (retrieval).
-  `OllamaClient.embed()` via `/api/embed`; embedding model resolution in
-  `BackendModelsService.resolveEmbeddingModel` (env OLLAMA_EMBED_MODEL >
-  name heuristic). (verified 2026-08-17)
+- **Project index / RAG core (M7 complete)** — retrieval is live.
+  `context/ProjectContextCollector.kt` `collect(question, mentionPaths,
+  budget)` → `retrieve()` via `index/RetrievalSelector.select` (top-12,
+  score floor 0.30, dedupes vs open+mentioned); budget order mentions →
+  editor selection (`SelectionSnapshot`, ≤8k chars) → remainder 60% open
+  files / 40% retrieved (`RETRIEVED_BUDGET_SHARE`), unused share spills.
+  `shared/.../IndexApi.kt` (`getStatusFlow`, `rebuild`) →
+  `backend/.../index/BackendIndexApi.kt`; `ProjectIndexService` now
+  incremental via `BulkFileListener` + 3s debounce
+  (`INCREMENTAL_DEBOUNCE_MS`). Settings: `IndexingConfigurable.kt`
+  (enable, embed model combo, custom embed URL, rebuild, live status).
+  Frontend: `ChatHeader.updateIndexStatus(IndexStatusDto)` sync dot.
+  (verified 2026-09-10)
 - **@ mentions (M4)** — `FileSearchApi` in shared; backend
-  `search/FileSearchService` (@Service PROJECT, whole-list cache nuked by
-  any VFS change, name-beats-path scoring). Attachments travel as
-  `sendMessage(projectId, text, attachments: List<String>)` — full paths,
-  never re-parsed from text. Mention tokens+popup live in
-  `PromptInput` (`currentMentionQuery`/`insertMention`/`currentMentionPaths`);
-  debounce (250ms) is in `ChatViewModel.onMentionQuery`. Collector gives
-  mentions budget priority (`collect(mentionPaths, budget)`).
-  (verified 2026-08-17)
+  `search/FileSearchService` (@Service PROJECT, cache nuked by any VFS
+  change, name-beats-path scoring). Attachments travel as
+  `sendMessage(..., attachments: List<String>)` — full paths, never
+  re-parsed from text. Mention popup lives in `PromptInput`
+  (`currentMentionQuery`/`insertMention`); debounce (250ms) is in
+  `ChatViewModel.onMentionQuery`; collector gives mentions budget
+  priority. (verified 2026-08-17)
 - **Agent Skills backend (M8 PR2)** — `backend/.../skills/`:
-  `SkillManifestParser` (pure, hand-rolled SKILL.md frontmatter parser, no
-  YAML lib), `SkillStore` (pure, atomic write/delete under
-  `SkillLocations.uploadRoot()`), `SkillDiscoveryService` (@Service PROJECT;
-  scans `.code-assistant|.agents|.claude/skills` under project + host home,
+  `SkillManifestParser` (pure SKILL.md frontmatter parser, no YAML lib),
+  `SkillStore` (atomic write/delete under `SkillLocations.uploadRoot()`),
+  `SkillDiscoveryService` (@Service PROJECT; scans
+  `.code-assistant|.agents|.claude/skills` under project + host home,
   project > user precedence, VFS-debounced, gated on
-  `TrustedProjects.isProjectTrusted`), `BackendSkillsApi` (`SkillsApi` impl).
-  `shared/.../SkillsApi.kt` (`getStateFlow`/`refresh`/`uploadSkill`/
-  `deleteSkill`) + `SkillDto`/`SkillsStateDto`/`SkillFileDto`/
-  `SkillUploadDto`/`SkillUploadResultDto` in `dtos.kt` (files cross RPC as
-  base64, not `ByteArray` — kotlinx encodes `ByteArray` as a JSON number
-  list). (verified 2026-09-07)
+  `TrustedProjects.isProjectTrusted`), `BackendSkillsApi`.
+  `shared/.../SkillsApi.kt` + DTOs in `dtos.kt` (files cross RPC as
+  base64, not `ByteArray`). (verified 2026-09-07)
 - **Slash-command flow (M8 PR3)** — `PromptInput.currentSlashQuery`/
   `leadingSkillToken` → `ChatViewModel.onSlashQuery`/`resolveSkillToken`
-  (local filter of `FrontendSkillsModel.stateFlow`, no RPC per keystroke)
-  → `ChatViewModelApi.onSendMessage(skills)` →
+  (local filter, no RPC per keystroke) → `onSendMessage(skills)` →
   `BackendChatRepositoryModel.Conversation.activatedSkills` +
-  `buildSkillBlocks` (system-prompt injection, sticky per tab).
-  (verified 2026-09-07)
+  `buildSkillBlocks` (system-prompt injection, sticky per tab). (verified 2026-09-07)
 - **`skills/SkillImporter` (M8 PR3)** — frontend-only, client-local
-  `JFileChooser` (folder or `.zip`) → base64-encoded `SkillFileDto`s in a
-  `SkillUploadDto` → `SkillsApi.uploadSkill`; the one sanctioned filesystem
-  read in `frontend/` because it reads the *client* machine, not the
-  project. `frontend/.../skills/SkillImporter.kt` (verified 2026-09-07)
+  `JFileChooser` → base64-encoded `SkillFileDto`s → `SkillsApi.uploadSkill`;
+  the one sanctioned filesystem read in `frontend/` (client machine, not the project). (verified 2026-09-07)
 - **Settings sub-pages (M8 PR1)** — root id
   `com.rizkybusiness.ai.assistant.settings` on
-  `settings/AssistantGeneralConfigurable`; `PromptsConfigurable`,
-  `IndexingConfigurable`, `SkillsConfigurable` are children via `parentId`,
-  all registered in `code-assistant.backend.xml`. (verified 2026-09-07)
-- **Frontend remote-API acquisition** — NOT in the tool window:
-  `FrontendChatRepositoryModel` (`@Service(PROJECT)`) wraps calls in
-  `fleet.rpc.client.durable { }` and exposes a `StateFlow` via `stateIn`.
-  `frontend/src/main/kotlin/com/rizkybusiness/ai/assistant/chatApp/viewmodel/FrontendChatRepositoryModel.kt`
-  (verified 2026-08-01)
-- **Tool window** — `ModularPluginToolWindowFactory` (frontend), declared in
-  `code-assistant.frontend.xml` with id "Code Assistant"; builds
-  `ChatViewModel(CoroutineScopeHolder.scope, FrontendChatRepositoryModel)`.
-  (verified 2026-08-01)
-- **Content module naming** — module names derive from
-  `rootProject.name` (`code-assistant`) + subproject: descriptor files
-  `code-assistant.{shared,frontend,backend}.xml` must match plugin.xml
-  `<content>` entries. Rename all together or loading breaks. (verified 2026-08-01)
+  `AssistantGeneralConfigurable`; `PromptsConfigurable`,
+  `IndexingConfigurable`, `SkillsConfigurable` are children via `parentId`. (verified 2026-09-07)
+- **Frontend remote-API acquisition** — NOT in the tool window: per-tab
+  calls live in `ChatTabRepository`, project-wide plumbing in
+  `FrontendChatRepositoryModel` (@Service PROJECT) — both wrap RPC in
+  `fleet.rpc.client.durable { }`. (verified 2026-09-10)
+- **Tool window** — `ModularPluginToolWindowFactory` (frontend), declared
+  in `code-assistant.frontend.xml` with id "Code Assistant". (verified 2026-08-01)
 
 ## Flows
 
-- **Send message (end to end)** — frontend `PromptInput` → `ChatViewModel`
-  → `ChatRepositoryApi` (local iface) → `FrontendChatRepositoryModel`
-  → RPC `ChatRepositoryRpcApi.sendMessage(projectId, text)` →
-  `BackendChatRepositoryRpcApi` (resolves `projectId.findProjectOrNull()`)
-  → `BackendChatRepositoryModel`; replies travel back solely as new
-  emissions of `getMessagesFlow`. UI is Swing (template deliberately
-  removed Compose). (verified 2026-08-01)
+- **Send message (end to end, M6 per-tab)** — frontend `PromptInput` →
+  `ChatViewModel` → `ChatRepositoryApi` (impl `ChatTabRepository`, mints
+  `chatId`, owns abort) → RPC `ChatRepositoryRpcApi.sendMessage(projectId,
+  chatId, text, attachments, skills)` → `BackendChatRepositoryRpcApi` →
+  `BackendChatRepositoryModel.Conversation` (`MAX_HISTORY_MESSAGES = 20`;
+  generation runs on a backend-owned scope so Stop survives the RPC call
+  being cancelled, PRs #45/#52). Replies arrive as new `getMessagesFlow`
+  emissions; Stop is `PromptInput` `SendButtonStyle.Stop`. (verified 2026-09-10)
 
 ## Gotchas
 
@@ -110,32 +93,27 @@ Maintained by the code-recon skill.
   the JetBrains Client holds its own plugin copy; ship a changed RPC
   contract under an unchanged version and client/host skew can fail
   silently. Rule in CLAUDE.md: version bump in the same PR as any
-  @Rpc/DTO change; uninstall from BOTH host and client lists when in
-  doubt. (NOTE: the 2026-08-31 "invisible bubbles" incident originally
-  blamed on this turned out to be the fixed-width-bubble layout bug
-  below — the rule stays because the risk is real.) (verified 2026-08-31)
+  @Rpc/DTO change; uninstall from BOTH host and client lists when in doubt. (verified 2026-08-31)
 - **Bubbles must wrap to the viewport width** — MessageContent had a
-  FIXED wrap width (~420px scaled); in a tool window narrower than that,
-  GridBag (anchor EAST/WEST, no horizontal scrollbar) lays bubbles
-  outside the visible area → chat looks completely empty while header,
-  context bar, and input work. Fix: `ChatList.applyAvailableWidth` feeds
-  viewport width to `MessageBubble.updateAvailableWidth`. Symptom to
-  remember: "no chat bubbles but everything else fine" = check window
-  width FIRST. (verified 2026-08-31)
+  FIXED wrap width; in a narrow tool window, GridBag laid bubbles outside
+  the visible area → chat looked empty while header/input worked. Fix:
+  `ChatList.applyAvailableWidth` feeds viewport width to
+  `MessageBubble.updateAvailableWidth`. Symptom: "no bubbles but everything else fine" = check window width FIRST. (verified 2026-08-31)
 - **ChatList renders by message id** — bubbles are created for new ids and
   removed for vanished ids; content changes to an EXISTING id must go
-  through `MessageBubble.updateFrom` (added for M1 streaming — the template
-  never updated messages in place). Symptom when broken: streamed reply
-  freezes at its first few tokens.
-  `frontend/.../chatApp/ui/ChatList.kt` `addNewMessages` (verified 2026-08-02)
-
+  through `MessageBubble.updateFrom`. Symptom when broken: streamed reply
+  freezes at its first few tokens. `frontend/.../chatApp/ui/ChatList.kt` `addNewMessages` (verified 2026-08-02)
 - **Platform toolchain requires JDK 21** — Gradle 9.4 daemon runs on JDK 25
-  but compilation wants languageVersion=21 and no toolchain download repo is
-  configured; Temurin 21.0.12 installed 2026-08-01 (auto-detected — no
-  config needed). (verified 2026-08-01)
+  but compilation wants languageVersion=21; Temurin 21.0.12 auto-detected. (verified 2026-08-01)
 - **`intellij.platform.rpc.backend`** is a Gradle `bundledModule` in
-  `backend/build.gradle.kts` only — it must NOT appear in the backend XML
-  descriptor. (verified 2026-08-01)
-- **`shared/build.gradle.kts` is intentionally empty** — plugins come from
-  the root `subprojects{}` block; serialization compileOnly artifacts are
-  declared only in frontend. Config cache is ON. (verified 2026-08-01)
+  `backend/build.gradle.kts` only — must NOT appear in the backend XML descriptor. (verified 2026-08-01)
+- **Multi-IDE dependency check** — backend descriptor depends on
+  `intellij.platform.vcs.impl` (+ Gradle `bundledModule`) for
+  `commit/CommitMessageGeneratorService.kt`; core platform in
+  IDEA/PyCharm/WebStorm so allowed, but any further module must be
+  checked as bundled in all three first. `pluginVerification` in root
+  `build.gradle.kts` targets IntelliJ IDEA Ultimate, PyCharm Professional,
+  WebStorm at `intellijPlatformVersion` (M5). Tests: 7 backend classes
+  (Chunker, IndexStore, RetrievalSelector, VectorMath,
+  SkillManifestParser, SkillStore, SelectionSnapshot), 1 frontend
+  (MarkdownBlocks). (verified 2026-09-10)

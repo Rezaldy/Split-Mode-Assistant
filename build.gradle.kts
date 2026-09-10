@@ -39,7 +39,10 @@ intellijPlatform {
 
     pluginVerification {
         ides {
+            // Multi-IDE rule (CLAUDE.md): the plugin must install in IDEA, PyCharm and WebStorm.
             create(IntelliJPlatformType.IntellijIdeaUltimate, intellijPlatformVersion)
+            create(IntelliJPlatformType.PyCharmProfessional, intellijPlatformVersion)
+            create(IntelliJPlatformType.WebStorm, intellijPlatformVersion)
         }
     }
 }

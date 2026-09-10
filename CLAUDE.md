@@ -29,7 +29,7 @@ root/                 assembles the plugin, owns splitMode config
 **The boundary rule (most important rule in this file):** if code needs the project model, the filesystem, indexes, or the model endpoint → it goes in `backend/`. If code renders or handles input → `frontend/`. Data crosses only via the RPC interfaces in `shared/`. When in doubt, put logic in the backend; the frontend should be as thin as possible.
 
 Module loadability is declared via content-module dependencies (verified against template @ 624df076):
-- backend **XML descriptor** depends on `intellij.platform.backend`, `intellij.platform.kernel.backend` (+ the shared module). `intellij.platform.rpc.backend` is a **Gradle `bundledModule` only** — do not add it to the XML.
+- backend **XML descriptor** depends on `intellij.platform.backend`, `intellij.platform.kernel.backend`, `intellij.platform.vcs.impl` (+ the shared module); the last one is also a Gradle `bundledModule` and backs the commit-message generator — it's core platform, bundled in every JetBrains IDE. `intellij.platform.rpc.backend` is a **Gradle `bundledModule` only** — do not add it to the XML.
 - frontend descriptor depends on `intellij.platform.frontend` (+ the shared module)
 - shared uses the `rpc` Gradle plugin (JetBrains-internal Kotlin compiler plugin, resolved from `https://packages.jetbrains.team/maven/p/ij/intellij-dependencies/`) to generate RPC stubs from `@Rpc` interfaces.
 
@@ -63,7 +63,7 @@ DTOs are `@Serializable` data classes. Never pass PSI, VFS, or any platform obje
 ### Multi-IDE compatibility rules
 
 - `plugin.xml` declares `<depends>com.intellij.modules.platform</depends>` and **nothing language-specific**. Never depend on `com.intellij.modules.java` or any language plugin.
-- Backend code may use only platform-level APIs: VFS, `ProjectFileIndex`, `FilenameIndex`, editors, documents. **No `com.intellij.psi.PsiJavaFile` or other language-specific PSI** — if language-aware context is wanted later, it must be optional-dependency based, not hard-required.
+- Backend code may use only platform-level APIs: VFS, `ProjectFileIndex`, `FilenameIndex`, editors, documents, the platform VCS API (`com.intellij.openapi.vcs`, the change-list manager, the text patch builder). **No `com.intellij.psi.PsiJavaFile` or other language-specific PSI** — if language-aware context is wanted later, it must be optional-dependency based, not hard-required. Anything beyond this list must be verified as bundled in IDEA, PyCharm **and** WebStorm before it's added to a descriptor, and named in this file once it is.
 - Verify continuously: `pluginVerification { ides { ... } }` lists IntelliJ IDEA (IU or IC), PyCharm (PY/PC), and WebStorm (WS). Run `./gradlew verifyPlugin` before considering any milestone done.
 
 ## Build & run
