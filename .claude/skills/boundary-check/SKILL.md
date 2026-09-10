@@ -9,6 +9,15 @@ Monolithic `runIde` runs frontend and backend in one process, so frontend
 code that illegally touches project APIs *works* — until it runs in split
 mode and breaks. This check finds those violations statically, in seconds.
 
+## Step 0: scope gate
+
+Before running anything, list the changed files (`git diff --name-only
+main...HEAD` plus uncommitted changes, or the delegated diff under review).
+Run the check only if at least one changed file ends in `.kt` or `.java`,
+or is a plugin/module descriptor under `resources/META-INF/`. Otherwise
+stop and report exactly: `boundary-check: skipped, no source or descriptor
+changes`.
+
 ## Quick pass (inline, always do this much)
 
 Run these greps and read every hit in context:
