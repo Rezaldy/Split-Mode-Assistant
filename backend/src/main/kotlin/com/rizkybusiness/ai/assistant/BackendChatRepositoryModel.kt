@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * Holds every chat conversation of the project, keyed by the frontend-minted chat id (one
@@ -56,7 +57,7 @@ class BackendChatRepositoryModel(
     private val conversations = ConcurrentHashMap<String, Conversation>()
 
     private fun conversation(chatId: String): Conversation =
-        conversations.computeIfAbsent(chatId) { Conversation() }
+        conversations.computeIfAbsent(chatId) { Conversation(chatId) }
 
     fun getMessagesFlow(chatId: String): Flow<List<ChatMessageDto>> {
         return conversation(chatId).messages.map { list -> list.map(ChatMessage::toChatMessageDto) }
@@ -81,7 +82,10 @@ class BackendChatRepositoryModel(
         conversations.remove(chatId)?.abortGeneration()
     }
 
-    private inner class Conversation {
+    /** Assembled request plus the size of its project-context block (for the start log line). */
+    private class RequestBuild(val messages: List<OllamaChatMessage>, val contextChars: Int)
+
+    private inner class Conversation(private val chatId: String) {
         val messages = MutableStateFlow(
             listOf(chatMessageFactory.createAIMessage(ModularPluginBackendBundle.message("chat.greeting")))
         )
@@ -95,6 +99,9 @@ class BackendChatRepositoryModel(
          * instructions that only lived in an old turn would silently fall out of the prompt.
          */
         private val activatedSkills = LinkedHashSet<String>()
+
+        /** Counts generations of this conversation; with the chat id it forms the `gen=` log id. */
+        private val generationCounter = AtomicInteger()
 
         suspend fun sendMessage(messageContent: String, attachments: List<String>, skills: List<String>) {
             messages.value += chatMessageFactory.createUserMessage(messageContent)
@@ -117,11 +124,12 @@ class BackendChatRepositoryModel(
             // and showed up as a reply silently cut off mid-word (field-confirmed). So the
             // work runs on the service scope; the RPC only awaits it, cancellably.
             generationJob?.cancel()
+            val genId = "${chatId.take(8)}/${generationCounter.incrementAndGet()}"
             val job = serviceScope.launch(Dispatchers.IO) {
                 try {
-                    streamAssistantResponse(messageContent, attachments)
+                    streamAssistantResponse(genId, messageContent, attachments)
                 } catch (e: CancellationException) {
-                    thisLogger().info("Chat generation cancelled (user abort, tab closed, or backend shutdown)")
+                    thisLogger().info("Chat generation cancelled: gen=$genId (user abort, tab closed, or backend shutdown)")
                     messages.value = messages.value.filter { !it.isAIThinkingMessage() }
                     throw e
                 } catch (e: OllamaException) {
@@ -131,7 +139,7 @@ class BackendChatRepositoryModel(
                         )
                     )
                 } catch (e: Exception) {
-                    thisLogger().warn("Chat generation failed", e)
+                    thisLogger().warn("Chat generation failed: gen=$genId", e)
                     upsertAssistantMessage(
                         chatMessageFactory.createErrorMessage(
                             ModularPluginBackendBundle.message("chat.error", e.message ?: e.javaClass.simpleName)
@@ -147,12 +155,18 @@ class BackendChatRepositoryModel(
             generationJob?.cancel()
         }
 
-        private suspend fun streamAssistantResponse(question: String, attachments: List<String>) {
+        private suspend fun streamAssistantResponse(genId: String, question: String, attachments: List<String>) {
             messages.value += chatMessageFactory
                 .createAIThinkingMessage(ModularPluginBackendBundle.message("chat.thinking"))
 
             val model = BackendModelsService.getInstance().resolveChatModel()
-            val requestMessages = buildRequestMessages(question, attachments)
+            val request = buildRequestMessages(question, attachments)
+            val requestMessages = request.messages
+            // Counts and sizes only, never the prompt itself (plugin-logging skill).
+            thisLogger().info(
+                "Chat generation started: gen=$genId model='$model' messages=${requestMessages.size} " +
+                    "attachments=${attachments.size} context=${request.contextChars}"
+            )
 
             val streamedMessage = chatMessageFactory.createAIMessage("")
             val content = StringBuilder()
@@ -169,6 +183,7 @@ class BackendChatRepositoryModel(
                         contextTokens = numCtx,
                         requestThinking = requestThinking,
                         onDone = { doneStats = it },
+                        logTag = "gen=$genId",
                     )
                     .collect { token ->
                         if (token.isThinking) thinking.append(token.text) else content.append(token.text)
@@ -221,7 +236,7 @@ class BackendChatRepositoryModel(
         }
 
         /** History (this conversation only) prefixed by a system message carrying the project context. */
-        private suspend fun buildRequestMessages(question: String, attachments: List<String>): List<OllamaChatMessage> {
+        private suspend fun buildRequestMessages(question: String, attachments: List<String>): RequestBuild {
             val history = messages.value
                 .filter { it.isTextMessage() && it.content.isNotBlank() }
                 .takeLast(MAX_HISTORY_MESSAGES)
@@ -243,7 +258,7 @@ class BackendChatRepositoryModel(
                     append(context)
                 }
             }
-            return listOf(OllamaChatMessage("system", systemContent)) + history
+            return RequestBuild(listOf(OllamaChatMessage("system", systemContent)) + history, context.length)
         }
 
         /**

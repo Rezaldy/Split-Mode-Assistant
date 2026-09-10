@@ -15,6 +15,20 @@ grep -E "rizkybusiness|OllamaException|Chat (stream|generation)|Model discovery|
 
 ## Last generation
 
+Every line of one chat generation carries `gen=<first 8 chars of the chat id>/<n>`
+as its first key (`n` counts up per chat tab), so pull the id off the last
+`Chat generation started` line and grep for it:
+
+```bash
+id=$(grep -oE "gen=[0-9a-f]{8}/[0-9]+" .intellijPlatform/sandbox/*/*/log_runIdeBackend/idea.log | tail -n 1) && grep -F "$id" .intellijPlatform/sandbox/*/*/log_runIdeBackend/idea.log
+```
+
+That yields the `started`, `done` (or `stalled` / `ended without done:true`),
+`cancelled`, and `failed` lines of that generation and nothing else, even with
+several tabs generating at once. Commit-message generations are tagged
+`gen=commit/<n>` instead and only produce `Chat stream` lines. To see the last
+few generations of any kind in order:
+
 ```bash
 grep -E "Chat (stream|generation)" .intellijPlatform/sandbox/*/*/log_runIdeBackend/idea.log | tail -n 20
 ```
