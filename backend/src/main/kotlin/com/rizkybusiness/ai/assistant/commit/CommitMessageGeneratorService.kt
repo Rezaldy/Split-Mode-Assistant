@@ -24,6 +24,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.StringWriter
 import java.nio.file.Paths
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * Generates a commit message from a set of changes and streams it into the commit UI's
@@ -48,6 +49,9 @@ class CommitMessageGeneratorService(
         private set
 
     private var generationJob: Job? = null
+
+    /** Numbers this project's commit-message generations for the `gen=commit/<n>` log tag. */
+    private val generationCounter = AtomicInteger()
 
     /** Starts (or restarts) generation; a click while running cancels the previous run. */
     fun generate(changes: List<Change>, commitMessage: CommitMessageI) {
@@ -108,7 +112,11 @@ class CommitMessageGeneratorService(
         // requestThinking stays off: reasoning tokens must never land in a commit message,
         // and the subject-line task doesn't need them.
         OllamaClientService.getInstance().client()
-            .chatStream(model, request, contextTokens = AssistantSettings.getInstance().contextTokens)
+            .chatStream(
+                model, request,
+                contextTokens = AssistantSettings.getInstance().contextTokens,
+                logTag = "gen=commit/${generationCounter.incrementAndGet()}",
+            )
             .collect { token ->
                 if (token.isThinking) return@collect
                 text.append(token.text)

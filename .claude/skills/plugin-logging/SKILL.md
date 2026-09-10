@@ -78,7 +78,7 @@ Read these before adding a new line nearby — match their shape, don't
 invent a new one:
 
 - `backend/.../ollama/OllamaClient.kt` — `info` on every stream end:
-  `Chat stream done: model='<m>' reason=<r> prompt=<n> reply=<n>
+  `Chat stream done: gen=<id> model='<m>' reason=<r> prompt=<n> reply=<n>
   num_ctx=<n>`. This is the line that answers "did the model stop on its
   own or hit a limit" after the fact — `reason=stop` is the model finishing
   normally, `reason=length` is `num_ctx`/`num_predict` cutting it off. Same
@@ -100,19 +100,17 @@ invent a new one:
   frontend is thin by design (CLAUDE.md) — it logs RPC failures it can't
   surface any other way, and nothing at token frequency.
 
-## The one known gap
+## The generation id
 
-No line anywhere carries a generation identifier. With two chat tabs open,
-or a host log and a client log side by side, there is currently no way to
-tell which `Chat stream done` line belongs to which conversation. The
-convention to adopt when you're touching this code anyway: a short id —
-first 8 chars of the `chatId` plus a per-conversation counter, e.g.
-`gen=3f9a2c1e/7` — as the first key in the start, done, stalled, cancelled,
-and failed lines of one generation. It's produced in
-`BackendChatRepositoryModel` and needs to reach `OllamaClient.chat` (as a
-parameter, or logged by the caller around the call). This is a normal code
-change, not something this skill does for you — propose it as a follow-up
-rather than sneaking it into an unrelated diff.
+Every chat generation carries a short id — the first 8 chars of the `chatId`
+plus a per-conversation counter, e.g. `gen=3f9a2c1e/7` — as the first key of
+its started, done, stalled, ended-without-done, cancelled, and failed lines.
+It is minted in `BackendChatRepositoryModel.Conversation.sendMessage` and
+reaches `OllamaClient.chatStream` through its `logTag` parameter; commit-message
+generations pass `gen=commit/<n>` instead. With two chat tabs open, or a host
+log and a client log side by side, the id is what tells the lines apart — so
+any new line on the generation path takes the id as its first key too, and
+any new `chatStream` caller passes a tag rather than leaving it empty.
 
 ## Instrumenting a generation
 
@@ -125,8 +123,8 @@ payload you were told to keep out:
   without saying what was asked.
 - First token, `debug`: time since start. Distinguishes "model loading"
   from "model slow" from "nothing arriving".
-- Done, stalled, incomplete, cancelled, failed — already logged; give them
-  the `gen=` id when you touch them.
+- Done, stalled, incomplete, cancelled, failed — already logged, each with
+  the `gen=` id as its first key.
 - Progress, `trace` at most: a chunk counter every N chunks, never every
   chunk.
 
@@ -167,7 +165,7 @@ exception, UI state, RPC error payload) instead of scraping log output.
 - Anything the user needs to act on is also visible in the chat UI, not
   logged only.
 - The line uses an existing subject word, or a new one that's genuinely a
-  new kind of event — and carries the `gen=` id once the generation path
-  has one (see "The one known gap").
+  new kind of event — and carries the `gen=` id when it is on the generation
+  path (see "The generation id").
 - The PR description says which line to look for and in which file, per run
   mode that matters for the change.

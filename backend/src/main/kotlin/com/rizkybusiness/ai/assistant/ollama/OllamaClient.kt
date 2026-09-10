@@ -160,6 +160,10 @@ class OllamaClient(val baseUrl: String, val useProxy: Boolean = false) {
      * unlimited; when the model still stops on a limit, [onDone] receives the server's
      * `done_reason` (e.g. "length") plus token counts so callers can tell the user
      * instead of hiding it.
+     *
+     * [logTag] is prefixed as the first key of every log line this stream writes (e.g.
+     * `gen=3f9a2c1e/7`) so one generation can be followed through `idea.log`; empty means
+     * no tag. It is never sent to the model source.
      */
     /** Capabilities from `/api/show` (e.g. "thinking", "tools"); empty when the call fails. */
     suspend fun modelCapabilities(model: String): List<String> = withContext(Dispatchers.IO) {
@@ -179,7 +183,9 @@ class OllamaClient(val baseUrl: String, val useProxy: Boolean = false) {
         contextTokens: Int? = null,
         requestThinking: Boolean = false,
         onDone: (OllamaDoneStats) -> Unit = {},
+        logTag: String = "",
     ): Flow<OllamaStreamToken> = flow {
+        val tag = if (logTag.isEmpty()) "" else "$logTag "
         val request0 = OllamaChatRequest(
             model, messages,
             options = OllamaChatOptions(numCtx = contextTokens, numPredict = -1),
@@ -224,7 +230,7 @@ class OllamaClient(val baseUrl: String, val useProxy: Boolean = false) {
                 }
                 if (next == null) {
                     thisLogger().warn(
-                        "Chat stream for '$model' stalled: no data for ${idleTimeoutMs / 1000}s " +
+                        "Chat stream stalled: ${tag}model='$model' no data for ${idleTimeoutMs / 1000}s " +
                             "after $chunkCount chunks"
                     )
                     throw OllamaException(
@@ -257,7 +263,7 @@ class OllamaClient(val baseUrl: String, val useProxy: Boolean = false) {
                     // visible error, and this line is what tells apart "model stopped"
                     // from "limit hit" after the fact (host idea.log).
                     thisLogger().info(
-                        "Chat stream done: model='$model' reason=${stats.reason} " +
+                        "Chat stream done: ${tag}model='$model' reason=${stats.reason} " +
                             "prompt=${stats.promptTokens} reply=${stats.replyTokens} num_ctx=$contextTokens"
                     )
                     onDone(stats)
@@ -270,7 +276,7 @@ class OllamaClient(val baseUrl: String, val useProxy: Boolean = false) {
         // the connection — silently accepting the partial reply hides real infrastructure
         // problems (observed in the field: a corporate gateway chopping slow streams).
         if (!sawDone) {
-            thisLogger().warn("Chat stream for '$model' ended without done:true after $chunkCount chunks")
+            thisLogger().warn("Chat stream ended without done:true: ${tag}model='$model' after $chunkCount chunks")
             throw OllamaException(ModularPluginBackendBundle.message("error.stream.incomplete"))
         }
     }.flowOn(Dispatchers.IO)
