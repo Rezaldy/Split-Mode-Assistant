@@ -132,7 +132,7 @@ class ProjectIndexService(private val project: Project, private val scope: Corou
                 buildJob?.join()
                 runCatching { processIncremental() }.onFailure { e ->
                     if (e is CancellationException) throw e
-                    thisLogger().warn("Incremental index update failed", e)
+                    thisLogger().warn("Index build failed: mode=incremental", e)
                     _status.value = IndexStatus.Error(e.message ?: e.javaClass.simpleName)
                 }
             }
@@ -212,10 +212,14 @@ class ProjectIndexService(private val project: Project, private val scope: Corou
                 _status.value = IndexStatus.Idle
                 throw e
             } catch (e: OllamaException) {
+                // The model source is the user's environment, not ours — always warn with
+                // the throwable (plugin-logging skill), even though the status/notification
+                // already surface it.
+                thisLogger().warn("Index build failed: mode=full", e)
                 _status.value = IndexStatus.Error(e.message.orEmpty())
                 notifyResult()
             } catch (e: Exception) {
-                thisLogger().warn("Index build failed", e)
+                thisLogger().warn("Index build failed: mode=full", e)
                 _status.value = IndexStatus.Error(e.message ?: e.javaClass.simpleName)
                 notifyResult()
             }

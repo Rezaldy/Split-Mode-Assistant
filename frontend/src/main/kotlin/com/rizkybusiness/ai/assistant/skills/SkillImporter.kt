@@ -92,7 +92,7 @@ class SkillImporter(private val project: Project, private val scope: CoroutineSc
             withContext(Dispatchers.IO) { prepare(path, overwrite) }
         } catch (e: Exception) {
             if (e is CancellationException) throw e
-            thisLogger().warn("Reading skill from $path failed", e)
+            thisLogger().warn("Skill import failed: stage=read path=$path", e)
             return failure("error", ModularPluginFrontendBundle.message("chat.skills.import.failed", e.message ?: e.javaClass.simpleName))
         }
         return when (prepared) {
@@ -101,7 +101,7 @@ class SkillImporter(private val project: Project, private val scope: CoroutineSc
                 FrontendSkillsModel.getInstance(project).upload(prepared.upload)
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
-                thisLogger().warn("Uploading skill ${prepared.upload.name} failed", e)
+                thisLogger().warn("Skill import failed: stage=upload name=${prepared.upload.name}", e)
                 failure("error", ModularPluginFrontendBundle.message("chat.skills.import.failed", e.message ?: e.javaClass.simpleName))
             }
         }

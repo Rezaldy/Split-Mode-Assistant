@@ -66,7 +66,9 @@ class BackendModelsService(private val scope: CoroutineScope) {
                 } else null,
             )
         } catch (e: OllamaException) {
-            thisLogger().info("Model discovery failed: ${e.message}")
+            // An unreachable/misconfigured source is the user's environment, not ours — warn
+            // with the throwable (plugin-logging skill), never just the message.
+            thisLogger().warn("Model discovery failed: url=${redactUrl(client.baseUrl)}", e)
             _state.value = ModelsStateDto(envOverride = envOverride != null, error = e.message)
         }
     }
@@ -104,6 +106,13 @@ class BackendModelsService(private val scope: CoroutineScope) {
     /** Embedding-capable candidates from the already-discovered list (no network call). */
     fun embeddingCandidatesFromCache(): List<String> =
         state.value.models.filter { name -> EMBED_NAME_HINTS.any { it in name.lowercase() } }
+
+    /** Log-safe form of a base URL: host:port only, never userinfo/credentials. */
+    private fun redactUrl(url: String): String {
+        val uri = runCatching { java.net.URI(url) }.getOrNull() ?: return "<unparseable>"
+        val host = uri.host ?: return "<unparseable>"
+        return if (uri.port > 0) "$host:${uri.port}" else host
+    }
 
     private val thinkingSupport = java.util.concurrent.ConcurrentHashMap<String, Boolean>()
 
