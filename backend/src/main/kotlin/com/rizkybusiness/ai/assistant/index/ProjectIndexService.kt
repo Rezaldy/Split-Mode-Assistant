@@ -10,7 +10,7 @@ import com.intellij.notification.NotificationGroupManager
 import com.intellij.notification.NotificationType
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.PathManager
-import com.intellij.openapi.application.runReadAction
+import com.intellij.openapi.application.readAction
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.diagnostic.thisLogger
 import com.intellij.openapi.fileEditor.FileDocumentManager
@@ -150,7 +150,7 @@ class ProjectIndexService(private val project: Project, private val scope: Corou
     }
 
     /** One-time cheap staleness scan: hash-compare files vs the loaded index, queue diffs. */
-    private fun reconcileWithDisk() {
+    private suspend fun reconcileWithDisk() {
         val current = entries
         val (candidates, _) = enumerateFiles()
         val seenPaths = mutableSetOf<String>()
@@ -443,7 +443,7 @@ class ProjectIndexService(private val project: Project, private val scope: Corou
         val fileSystem = LocalFileSystem.getInstance()
         for (path in dirty) {
             val file = fileSystem.findFileByPath(path) ?: continue
-            val inContent = runReadAction {
+            val inContent = readAction {
                 !file.isDirectory && !file.fileType.isBinary && file.length in 1..MAX_FILE_BYTES &&
                     ProjectFileIndex.getInstance(project).isInContent(file)
             }
@@ -479,7 +479,7 @@ class ProjectIndexService(private val project: Project, private val scope: Corou
 
     // --- Helpers -------------------------------------------------------------
 
-    private fun readFileText(file: VirtualFile): String? = runReadAction {
+    private suspend fun readFileText(file: VirtualFile): String? = readAction {
         // Cached document (open files, unsaved edits) or raw VFS text: unopened files
         // have no unsaved edits, so loadText is equivalent without materializing a
         // Document per indexed file.
@@ -487,7 +487,7 @@ class ProjectIndexService(private val project: Project, private val scope: Corou
             ?: runCatching { VfsUtilCore.loadText(file) }.getOrNull()
     }?.take(MAX_FILE_CHARS)
 
-    private fun enumerateFiles(): Pair<List<VirtualFile>, Int> = runReadAction {
+    private suspend fun enumerateFiles(): Pair<List<VirtualFile>, Int> = readAction {
         val accepted = mutableListOf<VirtualFile>()
         var totalCandidates = 0
         ProjectFileIndex.getInstance(project).iterateContent { file ->
