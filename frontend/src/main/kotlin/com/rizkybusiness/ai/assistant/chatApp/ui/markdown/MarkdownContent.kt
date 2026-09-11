@@ -11,11 +11,11 @@ import com.intellij.openapi.fileTypes.UnknownFileType
 import com.intellij.openapi.project.Project
 import com.intellij.ui.ColorUtil
 import com.intellij.ui.EditorTextField
-import com.intellij.ui.JBColor
 import com.intellij.util.ui.HTMLEditorKitBuilder
 import com.intellij.util.ui.JBFont
 import com.intellij.util.ui.JBUI
 import com.intellij.util.ui.UIUtil
+import com.rizkybusiness.ai.assistant.chatApp.ui.utils.ChatAppColors
 import java.awt.Component
 import java.awt.Dimension
 import javax.swing.BoxLayout
@@ -136,7 +136,7 @@ private class ParagraphView(block: MarkdownBlocks.Block, private var wrapPx: Int
 
     private fun wrapHtml(bodyHtml: String): String {
         val base = JBFont.regular()
-        val codeBackground = ColorUtil.toHtmlColor(JBColor(0xEBEBEB, 0x2B2D30))
+        val codeBackground = ColorUtil.toHtmlColor(ChatAppColors.Markdown.codeBackground)
         val foreground = ColorUtil.toHtmlColor(UIUtil.getLabelForeground())
         val linkColor = ColorUtil.toHtmlColor(JBUI.CurrentTheme.Link.Foreground.ENABLED)
         return "<html><head><style>" +

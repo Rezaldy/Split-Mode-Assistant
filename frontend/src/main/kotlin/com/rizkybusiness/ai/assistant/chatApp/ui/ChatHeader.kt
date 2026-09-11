@@ -2,7 +2,6 @@ package com.rizkybusiness.ai.assistant.chatApp.ui
 
 import com.intellij.icons.AllIcons
 import com.intellij.openapi.ui.ComboBox
-import com.intellij.ui.JBColor
 import com.intellij.ui.components.JBLabel
 import com.intellij.util.ui.ColorIcon
 import com.intellij.util.ui.JBFont
@@ -15,7 +14,6 @@ import com.rizkybusiness.ai.assistant.chatApp.ui.utils.ChatAppColors
 import com.rizkybusiness.ai.assistant.chatApp.ui.utils.ChatAppIcons
 import com.rizkybusiness.ai.assistant.chatApp.ui.utils.ChatUIConstants
 import java.awt.BorderLayout
-import java.awt.Color
 import java.awt.Dimension
 import java.awt.event.ItemEvent
 import javax.swing.Box
@@ -35,20 +33,13 @@ class ChatHeader(
     private var searchVisible = false
     private val modelCombo = ComboBox<String>()
     private val indexSyncButton = ButtonUtils.createActionButton(
-        icon = ColorIcon(JBUI.scale(10), SYNC_UNKNOWN),
+        icon = ColorIcon(JBUI.scale(10), ChatAppColors.IndexStatus.unknown),
         tooltip = "",
         size = ChatUIConstants.Button.LARGE_ACTION_BUTTON_SIZE,
     ) {
         onRebuildIndex()
     }.apply { isVisible = false }
     private lateinit var importButton: JButton
-
-    companion object {
-        private val SYNC_HEALTHY = JBColor(Color(0x2E7D32), Color(0x499C54))
-        private val SYNC_UNSYNCED = JBColor(Color(0xF9A825), Color(0xD6AE58))
-        private val SYNC_ERROR = JBColor(Color(0xC62828), Color(0xCF5B56))
-        private val SYNC_UNKNOWN = JBColor.GRAY
-    }
 
     /** Guards against the item listener firing during programmatic updates. */
     private var updatingCombo = false
@@ -130,9 +121,9 @@ class ChatHeader(
         indexSyncButton.isVisible = status.enabled
         if (!status.enabled) return
         val color = when {
-            status.phase == "error" -> SYNC_ERROR
-            status.unsynced || status.phase == "building" -> SYNC_UNSYNCED
-            else -> SYNC_HEALTHY
+            status.phase == "error" -> ChatAppColors.IndexStatus.error
+            status.unsynced || status.phase == "building" -> ChatAppColors.IndexStatus.unsynced
+            else -> ChatAppColors.IndexStatus.healthy
         }
         indexSyncButton.icon = ColorIcon(JBUI.scale(10), color)
         indexSyncButton.toolTipText =

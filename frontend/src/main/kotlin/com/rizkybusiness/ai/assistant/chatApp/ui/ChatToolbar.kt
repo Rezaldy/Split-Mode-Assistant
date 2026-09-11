@@ -1,5 +1,6 @@
 package com.rizkybusiness.ai.assistant.chatApp.ui
 
+import com.intellij.util.ui.JBFont
 import com.intellij.util.ui.JBUI
 import com.rizkybusiness.ai.assistant.IndexStatusDto
 import com.rizkybusiness.ai.assistant.ModelsStateDto
@@ -102,20 +103,20 @@ private class ChatSearchBar(
 
         resultLabel = JLabel("").apply {
             foreground = ChatAppColors.Text.disabled
-            font = font.deriveFont(12f)
+            font = JBFont.small()
             border = JBUI.Borders.emptyLeft(ChatUIConstants.Spacing.NORMAL)
         }
 
         prevButton = ButtonUtils.createActionButton(
             icon = ChatAppIcons.Search.previous,
-            tooltip = "Previous (Shift+F3)",
+            tooltip = ModularPluginFrontendBundle.message("chat.search.previous.tooltip"),
             size = ChatUIConstants.Button.ACTION_BUTTON_SIZE,
             action = onPreviousResult
         )
 
         nextButton = ButtonUtils.createActionButton(
             icon = ChatAppIcons.Search.next,
-            tooltip = "Next (F3, Enter)",
+            tooltip = ModularPluginFrontendBundle.message("chat.search.next.tooltip"),
             size = ChatUIConstants.Button.ACTION_BUTTON_SIZE,
             action = onNextResult
         )
@@ -190,7 +191,7 @@ private class ChatSearchBar(
         when {
             hasResults -> {
                 val current = currentIndex + 1
-                resultLabel.text = "$current/$total"
+                resultLabel.text = ModularPluginFrontendBundle.message("chat.search.result.count", current, total)
                 prevButton.isEnabled = total > 1
                 nextButton.isEnabled = total > 1
             }
