@@ -162,7 +162,7 @@ class SkillDiscoveryService(private val project: Project, private val scope: Cor
             val text = try {
                 Files.readString(skill.location)
             } catch (e: Exception) {
-                thisLogger().warn("Cannot read ${skill.location}", e)
+                thisLogger().warn("Skill body read failed: name=$name scope=${skill.scope}", e)
                 return@withContext null
             }
             when (val parsed = SkillManifestParser.parse(text, skill.location.parent?.name)) {
@@ -172,7 +172,7 @@ class SkillDiscoveryService(private val project: Project, private val scope: Cor
                     SkillBody(name, if (truncated) body.take(MAX_SKILL_BODY_CHARS) else body, truncated)
                 }
                 is SkillParseResult.Skipped -> {
-                    thisLogger().warn("Skill $name at ${skill.location} is no longer valid: ${parsed.reason}")
+                    thisLogger().warn("Skill body invalid: name=$name scope=${skill.scope} reason=${parsed.reason}")
                     null
                 }
             }
@@ -203,7 +203,9 @@ class SkillDiscoveryService(private val project: Project, private val scope: Cor
                         found[skill.name] = winner.copy(
                             warnings = winner.warnings + SkillWarning(SkillWarning.SHADOWED, skill.location.toString())
                         )
-                        thisLogger().info("Skill '${skill.name}' at ${skill.location} is shadowed by ${winner.location}")
+                        thisLogger().info(
+                            "Skill shadowed: name=${skill.name} losingScope=$scopeName winningScope=${winner.scope}"
+                        )
                     }
                 }
             }
@@ -225,7 +227,7 @@ class SkillDiscoveryService(private val project: Project, private val scope: Cor
                 }.sorted().toList()
             }
         } catch (e: Exception) {
-            thisLogger().warn("Cannot list skills under $root", e)
+            thisLogger().warn("Skill directory listing failed: root=${root.forLog()}", e)
             emptyList()
         }
     }
@@ -233,8 +235,13 @@ class SkillDiscoveryService(private val project: Project, private val scope: Cor
     private fun load(dir: Path, scopeName: String, uploaded: Boolean): DiscoveredSkill? {
         val manifestPath = dir.resolve(MANIFEST_FILE)
         return try {
-            if (Files.size(manifestPath) > MAX_MANIFEST_BYTES) {
-                thisLogger().info("Skipping $manifestPath: larger than $MAX_MANIFEST_BYTES bytes")
+            val size = Files.size(manifestPath)
+            if (size > MAX_MANIFEST_BYTES) {
+                // The user's own file is oversized — environment-caused, so warn (plugin-logging
+                // skill); this skill simply drops out of the catalog with no other signal today.
+                thisLogger().warn(
+                    "Skill manifest too large: scope=$scopeName skill=${dir.name} bytes=$size maxBytes=$MAX_MANIFEST_BYTES"
+                )
                 return null
             }
             when (val parsed = SkillManifestParser.parse(Files.readString(manifestPath), dir.name)) {
@@ -246,14 +253,25 @@ class SkillDiscoveryService(private val project: Project, private val scope: Cor
                     warnings = parsed.manifest.warnings,
                 )
                 is SkillParseResult.Skipped -> {
-                    thisLogger().info("Skipping $manifestPath: ${parsed.reason}")
+                    thisLogger().warn("Skill manifest invalid: scope=$scopeName skill=${dir.name} reason=${parsed.reason}")
                     null
                 }
             }
         } catch (e: Exception) {
-            thisLogger().warn("Cannot read $manifestPath", e)
+            thisLogger().warn("Skill manifest read failed: scope=$scopeName skill=${dir.name}", e)
             null
         }
+    }
+
+    /**
+     * For log lines only: paths under the project show relative to it; roots with no
+     * project-relative form (the host user's home skill folder) stay absolute — there's
+     * no alternative for those.
+     */
+    private fun Path.forLog(): String {
+        val base = project.basePath?.let { Path.of(it) } ?: return toString()
+        if (!startsWith(base)) return toString()
+        return runCatching { base.relativize(this).toString() }.getOrDefault(toString())
     }
 
     private fun isUnderProjectSkillRoot(path: String): Boolean {

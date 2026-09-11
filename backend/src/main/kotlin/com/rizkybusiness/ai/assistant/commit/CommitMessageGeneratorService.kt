@@ -75,7 +75,8 @@ class CommitMessageGeneratorService(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                thisLogger().warn("Commit message generation failed", e)
+                // "Commit generation" mirrors the chat path's "Chat generation" subject word.
+                thisLogger().warn("Commit generation failed", e)
                 notify(
                     ModularPluginBackendBundle.message(
                         "commit.generate.failed", e.message ?: e.javaClass.simpleName

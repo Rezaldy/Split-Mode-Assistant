@@ -310,4 +310,4 @@ streaming changes in either PR).
   [x] M8 (all three PRs merged 2026-09-07: #65, #68, #67); follow-up
   `fix/input-popups` reworked the `@`/`/` popups (above the input, best match
   at the bottom, keyboard navigation) ·
-  [ ] M9 (planned; see §M9)
+  [~] M9 (PR1 `m9-ui-polish` #78 open; PR2 `m9-logging-audit` open; see §M9)
