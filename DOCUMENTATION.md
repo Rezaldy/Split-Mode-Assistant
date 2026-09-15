@@ -35,6 +35,7 @@ Consequences for users:
 - Markdown rendering supports GFM: tables, task lists, and strikethrough.
 - Fenced code blocks render as read-only IDE editors with syntax highlighting, when the IDE recognizes the language.
 - All chat text is selectable and copyable.
+- While a reply is being generated, the placeholder bubble names the current phase: preparing context, waiting for the model source (an elapsed-seconds counter appears after a few seconds — normal on a cold model), thinking, or writing. The model source gives no feedback between receiving the request and its first output chunk, covering both model load and prompt evaluation, which is why "waiting" cannot be broken down any further.
 
 ### Chat tabs
 

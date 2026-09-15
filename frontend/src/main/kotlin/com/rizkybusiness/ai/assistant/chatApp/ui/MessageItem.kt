@@ -27,6 +27,7 @@ class MessageBubble(
     private val isErrorMessage = message.isErrorMessage()
     private var contentArea: MarkdownContent? = null
     private var thinkingSection: ThinkingSection? = null
+    private var thinkingIndicator: ThinkingIndicator? = null
     private var timeStampRow: TimeStampLabel? = null
     private var currentContent: String = message.content
 
@@ -52,7 +53,7 @@ class MessageBubble(
                 add(Box.createVerticalStrut(JBUI.scale(ChatUIConstants.Spacing.NORMAL)))
                 timeStampRow = TimeStampLabel(message).also { add(it) }
             }
-            message.isAIThinkingMessage() -> add(ThinkingIndicator())
+            message.isAIThinkingMessage() -> thinkingIndicator = ThinkingIndicator(message.phase).also { add(it) }
         }
     }
 
@@ -61,6 +62,7 @@ class MessageBubble(
      * must be able to re-render its text after construction.
      */
     fun updateFrom(updated: ChatMessage) {
+        thinkingIndicator?.setPhase(updated.phase)
         thinkingSection?.setThinking(updated.thinking, answerStarted = updated.content.isNotBlank())
         timeStampRow?.refresh(updated)
         if (updated.content == currentContent) return
