@@ -3,7 +3,7 @@ package com.rizkybusiness.ai.assistant.search
 import com.rizkybusiness.ai.assistant.FileRefDto
 import com.rizkybusiness.ai.assistant.FileSearchApi
 import com.intellij.openapi.Disposable
-import com.intellij.openapi.application.runReadAction
+import com.intellij.openapi.application.readAction
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.roots.ProjectFileIndex
@@ -42,7 +42,7 @@ class FileSearchService(private val project: Project) : Disposable {
         )
     }
 
-    fun search(query: String, limit: Int): List<FileRefDto> {
+    suspend fun search(query: String, limit: Int): List<FileRefDto> {
         if (query.isBlank()) return emptyList()
         val files = cachedFiles ?: buildFileList().also { cachedFiles = it }
         val q = query.lowercase()
@@ -74,7 +74,7 @@ class FileSearchService(private val project: Project) : Disposable {
         return i == needle.length
     }
 
-    private fun buildFileList(): List<FileRefDto> = runReadAction {
+    private suspend fun buildFileList(): List<FileRefDto> = readAction {
         val result = mutableListOf<FileRefDto>()
         val basePath = project.basePath
         ProjectFileIndex.getInstance(project).iterateContent { file ->
