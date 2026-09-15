@@ -8,7 +8,7 @@ import com.rizkybusiness.ai.assistant.ollama.OllamaClientService
 import com.rizkybusiness.ai.assistant.settings.AssistantSettings
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.EDT
-import com.intellij.openapi.application.runReadAction
+import com.intellij.openapi.application.readAction
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.diagnostic.thisLogger
 import com.intellij.openapi.editor.Editor
@@ -122,7 +122,7 @@ class ProjectContextCollector(private val project: Project) : Disposable {
         lastRetrieved = retrieved.map { it.first }
         refreshContextFiles()
         val selection = captureSelection()
-        return runReadAction { assemble(selection, mentionPaths, retrieved.map { it.second }, budgetChars) }
+        return readAction { assemble(selection, mentionPaths, retrieved.map { it.second }, budgetChars) }
     }
 
     // --- Editor selection (editor models are EDT-confined — never touch them elsewhere) ---
@@ -235,7 +235,7 @@ class ProjectContextCollector(private val project: Project) : Disposable {
             val client = OllamaClientService.getInstance().embeddingClient()
             val query = VectorMath.normalizeInPlace(client.embed(embeddingModel, listOf(question)).first())
             // Open + mentioned files are already in the context in full — never retrieve them.
-            val excluded = mentionPaths.toSet() + runReadAction { openTextFiles().map { it.path } }
+            val excluded = mentionPaths.toSet() + readAction { openTextFiles().map { it.path } }
             RetrievalSelector.select(query, entries, excluded).mapNotNull { renderHit(it) }
         } catch (e: Exception) {
             if (e is CancellationException) throw e
@@ -244,16 +244,16 @@ class ProjectContextCollector(private val project: Project) : Disposable {
         }
     }
 
-    private fun renderHit(hit: RetrievalSelector.Hit): Pair<ContextFileDto, String>? = runReadAction {
-        val file = LocalFileSystem.getInstance().findFileByPath(hit.path) ?: return@runReadAction null
-        if (file.isDirectory || file.fileType.isBinary) return@runReadAction null
+    private suspend fun renderHit(hit: RetrievalSelector.Hit): Pair<ContextFileDto, String>? = readAction {
+        val file = LocalFileSystem.getInstance().findFileByPath(hit.path) ?: return@readAction null
+        if (file.isDirectory || file.fileType.isBinary) return@readAction null
         val text = FileDocumentManager.getInstance().getCachedDocument(file)?.text
             ?: runCatching { VfsUtilCore.loadText(file) }.getOrNull()
-            ?: return@runReadAction null
+            ?: return@readAction null
         val lines = text.lines()
         val from = (hit.startLine - 1).coerceIn(0, (lines.size - 1).coerceAtLeast(0))
         val to = hit.endLine.coerceAtMost(lines.size)
-        if (to <= from) return@runReadAction null
+        if (to <= from) return@readAction null
         val snippet = lines.subList(from, to).joinToString("\n").take(MAX_RETRIEVED_SNIPPET_CHARS)
         val dto = ContextFileDto(file.path, file.name, source = SOURCE_RETRIEVED)
         dto to "// File: ${file.path} (lines ${hit.startLine}-${hit.endLine}) [retrieved]\n$snippet\n\n"
