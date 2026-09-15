@@ -1,10 +1,14 @@
 package com.rizkybusiness.ai.assistant.chatApp.ui
 
 import com.intellij.openapi.Disposable
+import com.intellij.ui.components.JBLabel
 import com.intellij.util.animation.Animation
 import com.intellij.util.animation.Easing
 import com.intellij.util.animation.JBAnimator
+import com.intellij.util.ui.JBFont
 import com.intellij.util.ui.JBUI
+import com.rizkybusiness.ai.assistant.ChatMessage
+import com.rizkybusiness.ai.assistant.ModularPluginFrontendBundle
 import com.rizkybusiness.ai.assistant.chatApp.ui.utils.ChatAppColors
 import com.rizkybusiness.ai.assistant.chatApp.ui.utils.ChatUIConstants
 import java.awt.AlphaComposite
@@ -14,9 +18,10 @@ import java.awt.Graphics
 import java.awt.Graphics2D
 import java.awt.RenderingHints
 import javax.swing.JPanel
+import javax.swing.Timer
 
 @Suppress("UnstableApiUsage")
-class ThinkingIndicator : JPanel(), Disposable {
+class ThinkingIndicator(private var phase: ChatMessage.GenerationPhase) : JPanel(), Disposable {
     private val animator = JBAnimator(this).apply {
         isCyclic = true
         period = ChatUIConstants.ThinkingIndicator.ANIMATION_PERIOD_MS
@@ -24,9 +29,24 @@ class ThinkingIndicator : JPanel(), Disposable {
 
     private val dots = List(ChatUIConstants.ThinkingIndicator.DOT_COUNT) { PulsingDot() }
 
+    private val phaseLabel = JBLabel().apply {
+        font = JBFont.small()
+        foreground = ChatAppColors.Text.disabled
+        border = JBUI.Borders.emptyLeft(ChatUIConstants.Spacing.SMALL)
+    }
+
+    /** Wall-clock time the current WAITING phase began, for the elapsed-seconds label. */
+    private var waitingStartedAtMs: Long = 0L
+
+    private val waitingTimer = Timer(WAITING_TICK_MS) { updatePhaseLabel() }.apply {
+        isRepeats = true
+    }
+
     init {
         setupAppearance()
         dots.forEach { add(it) }
+        add(phaseLabel)
+        applyPhase()
     }
 
     private fun setupAppearance() {
@@ -43,11 +63,47 @@ class ThinkingIndicator : JPanel(), Disposable {
 
     override fun removeNotify() {
         animator.stop()
+        waitingTimer.stop()
         super.removeNotify()
     }
 
     override fun dispose() {
         animator.stop()
+        waitingTimer.stop()
+    }
+
+    fun setPhase(phase: ChatMessage.GenerationPhase) {
+        if (this.phase == phase) return
+        this.phase = phase
+        applyPhase()
+    }
+
+    private fun applyPhase() {
+        waitingTimer.stop()
+        if (phase == ChatMessage.GenerationPhase.WAITING) {
+            waitingStartedAtMs = System.currentTimeMillis()
+            waitingTimer.start()
+        }
+        updatePhaseLabel()
+    }
+
+    private fun updatePhaseLabel() {
+        phaseLabel.text = when (phase) {
+            ChatMessage.GenerationPhase.NONE -> ""
+            ChatMessage.GenerationPhase.PREPARING -> ModularPluginFrontendBundle.message("chat.phase.preparing")
+            ChatMessage.GenerationPhase.WAITING -> waitingLabelText()
+            ChatMessage.GenerationPhase.THINKING -> ModularPluginFrontendBundle.message("chat.phase.thinking")
+            ChatMessage.GenerationPhase.WRITING -> ModularPluginFrontendBundle.message("chat.phase.writing")
+        }
+    }
+
+    private fun waitingLabelText(): String {
+        val elapsedSeconds = (System.currentTimeMillis() - waitingStartedAtMs) / 1000
+        return if (elapsedSeconds >= WAITING_ELAPSED_THRESHOLD_S) {
+            ModularPluginFrontendBundle.message("chat.phase.waiting.elapsed", elapsedSeconds)
+        } else {
+            ModularPluginFrontendBundle.message("chat.phase.waiting")
+        }
     }
 
     private fun start() {
@@ -94,5 +150,10 @@ class ThinkingIndicator : JPanel(), Disposable {
                 g2d.dispose()
             }
         }
+    }
+
+    companion object {
+        private const val WAITING_TICK_MS = 1000
+        private const val WAITING_ELAPSED_THRESHOLD_S = 3
     }
 }
