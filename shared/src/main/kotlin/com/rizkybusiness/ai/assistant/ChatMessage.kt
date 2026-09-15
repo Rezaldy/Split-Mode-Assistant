@@ -28,12 +28,28 @@ data class ChatMessage(
     val contextLimit: Int = 0,
     /** True while this reply is still streaming from the model source. */
     val isStreaming: Boolean = false,
+    /** Where the generation that produces this message currently is; [GenerationPhase.NONE] once it is done. */
+    val phase: GenerationPhase = GenerationPhase.NONE,
 ) : Searchable {
 
     enum class ChatMessageType {
         AI_THINKING,
         TEXT,
         ERROR;
+    }
+
+    /**
+     * The observable stages of one generation, in order. The model source is silent between
+     * sending the request and its first chunk (model load + prompt evaluation), so
+     * [WAITING] cannot be split further; [THINKING] and [WRITING] follow the first reasoning
+     * and the first content token respectively.
+     */
+    enum class GenerationPhase {
+        NONE,
+        PREPARING,
+        WAITING,
+        THINKING,
+        WRITING;
     }
 
     @JvmOverloads

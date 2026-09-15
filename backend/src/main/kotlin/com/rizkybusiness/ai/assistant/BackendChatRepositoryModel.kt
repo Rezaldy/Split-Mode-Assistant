@@ -157,12 +157,16 @@ class BackendChatRepositoryModel(
         }
 
         private suspend fun streamAssistantResponse(genId: String, question: String, attachments: List<String>) {
+            // The placeholder's text is the fallback for a client that predates phases; a
+            // current client renders the phase instead and never shows the text.
             messages.value += chatMessageFactory
                 .createAIThinkingMessage(ModularPluginBackendBundle.message("chat.thinking"))
+                .copy(phase = ChatMessage.GenerationPhase.PREPARING)
 
             val model = BackendModelsService.getInstance().resolveChatModel()
             val request = buildRequestMessages(question, attachments)
             val requestMessages = request.messages
+            setPlaceholderPhase(ChatMessage.GenerationPhase.WAITING)
             // Counts and sizes only, never the prompt itself (plugin-logging skill).
             thisLogger().info(
                 "Chat generation started: gen=$genId model='$model' messages=${requestMessages.size} " +
@@ -172,6 +176,7 @@ class BackendChatRepositoryModel(
             val streamedMessage = chatMessageFactory.createAIMessage("")
             val content = StringBuilder()
             val thinking = StringBuilder()
+            var phase = ChatMessage.GenerationPhase.WAITING
             var lastFlush = 0L
             var doneStats: OllamaDoneStats? = null
             val numCtx = AssistantSettings.getInstance().contextTokens
@@ -188,14 +193,23 @@ class BackendChatRepositoryModel(
                     )
                     .collect { token ->
                         if (token.isThinking) thinking.append(token.text) else content.append(token.text)
+                        // The phase only moves forward: the first reasoning token starts
+                        // THINKING, the first content token starts WRITING (straight from
+                        // WAITING for a model without a reasoning stream). A phase change
+                        // flushes at once so the label never lags behind the throttle.
+                        val next = if (token.isThinking) ChatMessage.GenerationPhase.THINKING
+                        else ChatMessage.GenerationPhase.WRITING
+                        val phaseChanged = next > phase
+                        if (phaseChanged) phase = next
                         val now = System.currentTimeMillis()
-                        if (now - lastFlush >= STREAM_FLUSH_INTERVAL_MS) {
+                        if (phaseChanged || now - lastFlush >= STREAM_FLUSH_INTERVAL_MS) {
                             lastFlush = now
                             upsertAssistantMessage(
                                 streamedMessage.copy(
                                     content = content.toString(),
                                     thinking = thinking.toString(),
                                     isStreaming = true,
+                                    phase = phase,
                                 )
                             )
                         }
@@ -321,6 +335,11 @@ class BackendChatRepositoryModel(
                 }
                 append("</available_skills>")
             }
+        }
+
+        /** Updates the phase shown on the placeholder while it is still there (no token yet). */
+        private fun setPlaceholderPhase(phase: ChatMessage.GenerationPhase) {
+            messages.value = messages.value.map { if (it.isAIThinkingMessage()) it.copy(phase = phase) else it }
         }
 
         /** Drops the thinking placeholder and inserts or updates the assistant message by id. */

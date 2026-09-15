@@ -61,6 +61,8 @@ data class ChatMessageDto(
     val contextLimit: Int = 0,
     /** True while this reply is still streaming — drives the Stop button, independent of any RPC call. */
     val isStreaming: Boolean = false,
+    /** Current generation phase; the default keeps older clients deserializing. */
+    val phase: ChatMessage.GenerationPhase = ChatMessage.GenerationPhase.NONE,
 )
 
 fun ChatMessageDto.toChatMessage(): ChatMessage {
@@ -77,6 +79,7 @@ fun ChatMessageDto.toChatMessage(): ChatMessage {
         replyTokens = replyTokens,
         contextLimit = contextLimit,
         isStreaming = isStreaming,
+        phase = phase,
     )
 }
 
@@ -93,6 +96,7 @@ fun ChatMessage.toChatMessageDto(): ChatMessageDto {
         replyTokens = replyTokens,
         contextLimit = contextLimit,
         isStreaming = isStreaming,
+        phase = phase,
     )
 }
 /** A skill discovered on the host. Catalog data only — the SKILL.md body is read on the host at activation time. */
