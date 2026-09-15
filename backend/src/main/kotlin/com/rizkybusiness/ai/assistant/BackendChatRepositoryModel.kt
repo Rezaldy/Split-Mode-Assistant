@@ -12,6 +12,7 @@ import com.rizkybusiness.ai.assistant.repository.ChatMessageFactory
 import com.rizkybusiness.ai.assistant.settings.AssistantSettings
 import com.rizkybusiness.ai.assistant.skills.SkillDiscoveryService
 import com.intellij.openapi.components.Service
+import com.intellij.openapi.diagnostic.debug
 import com.intellij.openapi.diagnostic.thisLogger
 import com.intellij.openapi.project.Project
 import kotlinx.coroutines.CancellationException
@@ -290,7 +291,7 @@ class BackendChatRepositoryModel(
                 }
                 blocks.append("\n</skill_content>\n")
             }
-            thisLogger().debug("Injecting ${activatedSkills.size} skill(s) (${blocks.length} chars): $activatedSkills")
+            thisLogger().debug { "Injecting ${activatedSkills.size} skill(s) (${blocks.length} chars): $activatedSkills" }
             return blocks.toString().trim()
         }
 
