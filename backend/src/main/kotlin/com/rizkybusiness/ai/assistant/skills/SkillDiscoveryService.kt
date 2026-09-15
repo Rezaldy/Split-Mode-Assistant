@@ -2,6 +2,7 @@ package com.rizkybusiness.ai.assistant.skills
 
 import com.rizkybusiness.ai.assistant.ModularPluginBackendBundle
 import com.rizkybusiness.ai.assistant.SkillDto
+import com.rizkybusiness.ai.assistant.SkillProblemDto
 import com.rizkybusiness.ai.assistant.SkillsStateDto
 import com.rizkybusiness.ai.assistant.settings.AssistantSettings
 import com.intellij.ide.trustedProjects.TrustedProjects
@@ -79,6 +80,7 @@ class SkillDiscoveryService(private val project: Project, private val scope: Cor
 
     private val _skills = MutableStateFlow<List<DiscoveredSkill>>(emptyList())
     private val _error = MutableStateFlow<String?>(null)
+    private val _problems = MutableStateFlow<List<SkillProblemDto>>(emptyList())
 
     /** Bumped when enable/disable settings change so [stateDtoFlow] re-emits without a rescan. */
     private val settingsTick = MutableStateFlow(0)
@@ -116,9 +118,9 @@ class SkillDiscoveryService(private val project: Project, private val scope: Cor
 
     /** Catalog as plain DTOs for the settings page and the client. Triggers the first scan lazily. */
     fun stateDtoFlow(): Flow<SkillsStateDto> =
-        combine(_skills, _error, settingsTick) { skills, error, _ ->
+        combine(_skills, _error, _problems, settingsTick) { skills, error, problems, _ ->
             val settings = AssistantSettings.getInstance()
-            SkillsStateDto(skills = skills.map { it.toDto(settings) }, error = error)
+            SkillsStateDto(skills = skills.map { it.toDto(settings) }, error = error, problems = problems)
         }.onStart { ensureScanned() }
 
     /**
@@ -127,7 +129,11 @@ class SkillDiscoveryService(private val project: Project, private val scope: Cor
      */
     fun snapshot(): SkillsStateDto {
         val settings = AssistantSettings.getInstance()
-        return SkillsStateDto(skills = _skills.value.map { it.toDto(settings) }, error = _error.value)
+        return SkillsStateDto(
+            skills = _skills.value.map { it.toDto(settings) },
+            error = _error.value,
+            problems = _problems.value,
+        )
     }
 
     /** Current catalog snapshot (scanning first if needed); enabled skills only. */
@@ -192,10 +198,11 @@ class SkillDiscoveryService(private val project: Project, private val scope: Cor
             }
             val uploadRoot = SkillLocations.uploadRoot().toAbsolutePath().normalize()
             val found = LinkedHashMap<String, DiscoveredSkill>()
+            val problems = mutableListOf<SkillProblemDto>()
             for ((root, scopeName) in roots) {
-                for (dir in listSkillDirs(root)) {
+                for (dir in listSkillDirs(root, scopeName, problems)) {
                     val uploaded = dir.toAbsolutePath().normalize().parent == uploadRoot
-                    val skill = load(dir, scopeName, uploaded) ?: continue
+                    val skill = load(dir, scopeName, uploaded, problems) ?: continue
                     val winner = found[skill.name]
                     if (winner == null) {
                         found[skill.name] = skill
@@ -211,11 +218,12 @@ class SkillDiscoveryService(private val project: Project, private val scope: Cor
             }
             _skills.value = found.values.sortedBy { it.name }
             _error.value = if (trusted) null else ModularPluginBackendBundle.message("skills.error.untrusted")
+            _problems.value = problems
             scannedOnce = true
         }
     }
 
-    private fun listSkillDirs(root: Path): List<Path> {
+    private fun listSkillDirs(root: Path, scopeName: String, problems: MutableList<SkillProblemDto>): List<Path> {
         if (!Files.isDirectory(root)) return emptyList()
         return try {
             Files.list(root).use { stream ->
@@ -228,11 +236,21 @@ class SkillDiscoveryService(private val project: Project, private val scope: Cor
             }
         } catch (e: Exception) {
             thisLogger().warn("Skill directory listing failed: root=${root.forLog()}", e)
+            problems += SkillProblemDto(
+                scope = scopeName,
+                skillDir = root.forLog(),
+                reason = ModularPluginBackendBundle.message("skills.problem.root.unreadable"),
+            )
             emptyList()
         }
     }
 
-    private fun load(dir: Path, scopeName: String, uploaded: Boolean): DiscoveredSkill? {
+    private fun load(
+        dir: Path,
+        scopeName: String,
+        uploaded: Boolean,
+        problems: MutableList<SkillProblemDto>,
+    ): DiscoveredSkill? {
         val manifestPath = dir.resolve(MANIFEST_FILE)
         return try {
             val size = Files.size(manifestPath)
@@ -241,6 +259,11 @@ class SkillDiscoveryService(private val project: Project, private val scope: Cor
                 // skill); this skill simply drops out of the catalog with no other signal today.
                 thisLogger().warn(
                     "Skill manifest too large: scope=$scopeName skill=${dir.name} bytes=$size maxBytes=$MAX_MANIFEST_BYTES"
+                )
+                problems += SkillProblemDto(
+                    scope = scopeName,
+                    skillDir = dir.name,
+                    reason = ModularPluginBackendBundle.message("skills.problem.too.large", MAX_MANIFEST_BYTES / 1024),
                 )
                 return null
             }
@@ -254,11 +277,21 @@ class SkillDiscoveryService(private val project: Project, private val scope: Cor
                 )
                 is SkillParseResult.Skipped -> {
                     thisLogger().warn("Skill manifest invalid: scope=$scopeName skill=${dir.name} reason=${parsed.reason}")
+                    problems += SkillProblemDto(
+                        scope = scopeName,
+                        skillDir = dir.name,
+                        reason = ModularPluginBackendBundle.message("skills.problem.invalid", parsed.reason),
+                    )
                     null
                 }
             }
         } catch (e: Exception) {
             thisLogger().warn("Skill manifest read failed: scope=$scopeName skill=${dir.name}", e)
+            problems += SkillProblemDto(
+                scope = scopeName,
+                skillDir = dir.name,
+                reason = ModularPluginBackendBundle.message("skills.problem.unreadable"),
+            )
             null
         }
     }

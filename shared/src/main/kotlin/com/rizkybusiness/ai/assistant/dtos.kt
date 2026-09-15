@@ -116,6 +116,19 @@ data class SkillsStateDto(
     val skills: List<SkillDto> = emptyList(),
     /** Localized note shown above the list, e.g. project skills hidden until the project is trusted. */
     val error: String? = null,
+    /** Skill folders the host found but could not load; listed so a broken SKILL.md is never silent. */
+    val problems: List<SkillProblemDto> = emptyList(),
+)
+
+/** One skill folder (or a whole skills root) that discovery skipped, and why. */
+@Serializable
+data class SkillProblemDto(
+    /** "project" or "user". */
+    val scope: String,
+    /** Folder name of the skill; for an unreadable root, the root path itself. */
+    val skillDir: String,
+    /** Localized reason. */
+    val reason: String,
 )
 
 /** One file of an uploaded skill. Base64 on purpose: kotlinx JSON encodes a ByteArray as a list of numbers. */
