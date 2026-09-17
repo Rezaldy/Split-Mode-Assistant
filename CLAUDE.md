@@ -142,3 +142,17 @@ Delegation saves cost, not scrutiny: delegated changes never go straight into a 
 8. **M7 — opt-in project indexing (local RAG)**: settings-gated; backend chunks + embeds project files via the endpoint's `/api/embed` (embedding model auto-picked from `/api/tags`, `OLLAMA_EMBED_MODEL` override), vectors stored under the IDE system path, question-time top-k retrieval merged into the context budget (mentions > open files > retrieved). Index errors must never block chat. Full design in DEVELOPMENT_PLAN.md §M7.
 
 Do not start milestone N+1 while N has known regressions.
+
+## Agent skills
+
+### Issue tracker
+
+Issues and specs live in this repo's GitHub Issues (`Rezaldy/Split-Mode-Assistant`), via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The five canonical triage roles use their default label names (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: one `CONTEXT.md` plus `docs/adr/` at the repo root, both created lazily. See `docs/agents/domain.md`.
