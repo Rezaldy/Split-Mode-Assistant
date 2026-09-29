@@ -39,6 +39,44 @@ class MarkdownBlocksTest {
         assertEquals("print(1)", code.text)
     }
 
+    private fun code(md: String) = MarkdownBlocks.parse(md).single() as Block.Code
+
+    @Test
+    fun `info string with language and path`() {
+        val c = code("```kotlin src/Foo.kt\nx\n```")
+        assertEquals("kotlin", c.language)
+        assertEquals("src/Foo.kt", c.path)
+    }
+
+    @Test
+    fun `info string with language only has no path`() {
+        val c = code("```kotlin\nx\n```")
+        assertEquals("kotlin", c.language)
+        assertEquals(null, c.path)
+    }
+
+    @Test
+    fun `empty info string has neither`() {
+        val c = code("```\nx\n```")
+        assertEquals(null, c.language)
+        assertEquals(null, c.path)
+    }
+
+    @Test
+    fun `path= prefix and quotes are stripped`() {
+        assertEquals("src/Foo.kt", code("```kotlin path=src/Foo.kt\nx\n```").path)
+        assertEquals("src/Foo.kt", code("```kotlin file=\"src/Foo.kt\"\nx\n```").path)
+        assertEquals("src/Foo.kt", code("```kotlin `src/Foo.kt`\nx\n```").path)
+    }
+
+    @Test
+    fun `unclosed fence with path streams as code`() {
+        val c = code("```kotlin src/Foo.kt\nval x")
+        assertEquals("kotlin", c.language)
+        assertEquals("src/Foo.kt", c.path)
+        assertEquals("val x", c.text)
+    }
+
     @Test
     fun `raw html in source text cannot inject markup`() {
         val html = paragraphHtml("a <script>alert(1)</script> & b")

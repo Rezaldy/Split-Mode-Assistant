@@ -81,6 +81,26 @@ If the model stopped because it hit a token limit, or the reported counts show t
 
 A toolbar search field with previous/next navigation lets you search across the current conversation's messages.
 
+### Applying suggested changes
+
+When the model proposes a change to a project file, it puts it in a code block labelled with the file's path (relative to the project root). Once the reply has finished, such blocks show the path and an **Apply…** button above the code. Blocks without a path (examples, shell commands) are plain code and get no button.
+
+Clicking **Apply…** opens a diff of the current file against the proposed result (or "New file" when the file does not exist yet). Confirming with **Apply** writes the change as a single undoable command, "Apply AI Suggestion" — Ctrl+Z reverts it — and opens the file in the editor.
+
+The model is instructed to write edits to existing files as SEARCH/REPLACE hunks, one block per file:
+
+```
+<<<<<<< SEARCH
+exact lines currently in the file
+=======
+replacement lines
+>>>>>>> REPLACE
+```
+
+A block for a new file holds the full contents with no markers. Each SEARCH is matched exactly first, then whitespace-tolerant line by line, and must match only one place.
+
+Failures show next to the button instead of changing anything: SEARCH not found, SEARCH ambiguous (matches more than one place), the file changed since the preview, or a path outside the project. Paths outside the project root are always rejected. All reads and writes happen on the host, where the files live.
+
 ## Model selection
 
 The dropdown in the tool window header lists models returned by `GET /api/tags` on the configured source. The selection persists across sessions. A refresh button re-queries the source for its current model list.

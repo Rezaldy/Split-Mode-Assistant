@@ -48,6 +48,17 @@ class BackendChatRepositoryModel(
 
         /** Separate from the 24k-char project-context budget; ~3k tokens for all activated skills. */
         private const val SKILLS_BUDGET_CHARS = 12_000
+
+        /** Model-facing, fixed: the frontend's Apply button relies on this exact block format. */
+        private val FILE_CHANGE_INSTRUCTIONS = """
+            |When you propose a change to a project file, put it in a fenced code block whose info string is the language followed by the file's path relative to the project root, e.g. ```kotlin src/main/kotlin/Foo.kt. Use one block per file. To edit an existing file, the block holds one or more hunks:
+            |<<<<<<< SEARCH
+            |exact lines currently in the file
+            |=======
+            |replacement lines
+            |>>>>>>> REPLACE
+            |Each SEARCH must copy the existing lines exactly and match only one place; include a few surrounding lines to make it unique. To create a new file, put its full contents in the block without markers. Code blocks that are not file changes (examples, shell commands) get only a language, no path.
+        """.trimMargin()
     }
 
     private val chatMessageFactory = ChatMessageFactory(
@@ -262,6 +273,7 @@ class BackendChatRepositoryModel(
             val skillCatalog = buildSkillCatalog()
             val systemContent = buildString {
                 append(AssistantSettings.getInstance().effectiveChatSystemPrompt)
+                append("\n\n").append(FILE_CHANGE_INSTRUCTIONS)
                 if (skillBlocks.isNotBlank()) {
                     append("\n\n").append(skillBlocks)
                 }

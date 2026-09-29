@@ -17,7 +17,19 @@ object MarkdownBlocks {
         /** Rendered HTML fragment (fully escaped by the library). */
         data class Paragraph(val html: String) : Block
 
-        data class Code(val language: String?, val text: String) : Block
+        /** [path] is the optional target file named in the fence info string (`kotlin src/Foo.kt`). */
+        data class Code(val language: String?, val path: String?, val text: String) : Block
+    }
+
+    /** Info string → (language, path): first token is the language, last of 2+ tokens the path. */
+    private fun parseInfo(info: String): Pair<String?, String?> {
+        val tokens = info.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
+        val path = tokens.takeIf { it.size >= 2 }?.last()
+            ?.trim('"', '\'', '`')
+            ?.removePrefix("path=")?.removePrefix("file=")
+            ?.trim('"', '\'', '`')
+            ?.takeIf { it.isNotEmpty() }
+        return tokens.firstOrNull() to path
     }
 
     private val flavour = GFMFlavourDescriptor()
@@ -28,6 +40,7 @@ object MarkdownBlocks {
         val codeLines = mutableListOf<String>()
         var inCode = false
         var codeLanguage: String? = null
+        var codePath: String? = null
 
         fun flushText() {
             val segment = textLines.joinToString("\n")
@@ -37,9 +50,10 @@ object MarkdownBlocks {
         }
 
         fun flushCode() {
-            blocks += Block.Code(codeLanguage, codeLines.joinToString("\n"))
+            blocks += Block.Code(codeLanguage, codePath, codeLines.joinToString("\n"))
             codeLines.clear()
             codeLanguage = null
+            codePath = null
         }
 
         for (line in markdown.lines()) {
@@ -51,7 +65,10 @@ object MarkdownBlocks {
                 } else {
                     flushText()
                     inCode = true
-                    codeLanguage = trimmed.removePrefix("```").trim().takeIf { it.isNotBlank() }
+                    parseInfo(trimmed.removePrefix("```")).let { (lang, path) ->
+                        codeLanguage = lang
+                        codePath = path
+                    }
                 }
                 continue
             }

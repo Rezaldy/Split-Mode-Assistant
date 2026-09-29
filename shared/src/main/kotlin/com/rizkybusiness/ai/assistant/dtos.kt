@@ -160,3 +160,20 @@ data class SkillUploadResultDto(
     val message: String,
     val skillName: String? = null,
 )
+
+/** Proposed change to one file. [oldText] null means the file will be created. */
+@Serializable
+data class EditPreviewDto(
+    /** Project-relative path of the resolved target. */
+    val path: String = "",
+    val oldText: String? = null,
+    val newText: String = "",
+    /** Localized reason the block cannot be applied; other fields are then meaningless. */
+    val error: String? = null,
+)
+
+/** Outcome of [CodeEditApi.apply]; [error] is localized, null on success. */
+@Serializable
+data class EditResultDto(
+    val error: String? = null,
+)
