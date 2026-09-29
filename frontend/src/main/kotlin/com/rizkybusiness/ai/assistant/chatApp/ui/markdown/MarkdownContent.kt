@@ -11,13 +11,19 @@ import com.intellij.openapi.fileTypes.UnknownFileType
 import com.intellij.openapi.project.Project
 import com.intellij.ui.ColorUtil
 import com.intellij.ui.EditorTextField
+import com.intellij.ui.components.ActionLink
+import com.intellij.ui.components.JBLabel
 import com.intellij.util.ui.HTMLEditorKitBuilder
 import com.intellij.util.ui.JBFont
 import com.intellij.util.ui.JBUI
+import com.intellij.util.ui.NamedColorUtil
 import com.intellij.util.ui.UIUtil
+import com.rizkybusiness.ai.assistant.ModularPluginFrontendBundle
+import com.rizkybusiness.ai.assistant.chatApp.edit.CodeBlockApplier
 import com.rizkybusiness.ai.assistant.chatApp.ui.utils.ChatAppColors
 import java.awt.Component
 import java.awt.Dimension
+import javax.swing.Box
 import javax.swing.BoxLayout
 import javax.swing.JEditorPane
 import javax.swing.JPanel
@@ -33,10 +39,15 @@ import javax.swing.text.DefaultCaret
  * during a stream that is almost always just the last block, so no flicker and no
  * per-token editor churn.
  */
-class MarkdownContent(private val project: Project? = null) : JPanel() {
+class MarkdownContent(
+    private val project: Project? = null,
+    /** Shows the Apply link on path-labelled code blocks; only for assistant messages. */
+    private val allowApply: Boolean = false,
+) : JPanel() {
 
     private var wrapWidthPx: Int = JBUI.scale(360)
     private var blocks: List<MarkdownBlocks.Block> = emptyList()
+    private var applyEnabled = true
 
     init {
         layout = BoxLayout(this, BoxLayout.Y_AXIS)
@@ -50,6 +61,12 @@ class MarkdownContent(private val project: Project? = null) : JPanel() {
         components.forEach { (it as? BlockView)?.setWrapWidth(px) }
         revalidate()
         repaint()
+    }
+
+    /** Apply is off while the reply is still streaming — the block may be incomplete. */
+    fun setApplyEnabled(enabled: Boolean) {
+        applyEnabled = enabled
+        components.forEach { (it as? CodeView)?.setApplyEnabled(enabled) }
     }
 
     fun setMarkdown(text: String) {
@@ -66,7 +83,7 @@ class MarkdownContent(private val project: Project? = null) : JPanel() {
             val sameShape = when {
                 old is MarkdownBlocks.Block.Paragraph && new is MarkdownBlocks.Block.Paragraph -> true
                 old is MarkdownBlocks.Block.Code && new is MarkdownBlocks.Block.Code ->
-                    old.language == new.language
+                    old.language == new.language && old.path == new.path
                 else -> false
             }
             if (!sameShape) break
@@ -89,7 +106,7 @@ class MarkdownContent(private val project: Project? = null) : JPanel() {
 
     private fun createView(block: MarkdownBlocks.Block): BlockView = when (block) {
         is MarkdownBlocks.Block.Paragraph -> ParagraphView(block, wrapWidthPx)
-        is MarkdownBlocks.Block.Code -> CodeView(block, wrapWidthPx, project)
+        is MarkdownBlocks.Block.Code -> CodeView(block, wrapWidthPx, project, allowApply, applyEnabled)
     }
 }
 
@@ -162,6 +179,8 @@ private class CodeView(
     block: MarkdownBlocks.Block.Code,
     private var wrapPx: Int,
     project: Project?,
+    allowApply: Boolean,
+    applyEnabled: Boolean,
 ) : JPanel(), BlockView {
 
     private var currentText = block.text
@@ -191,12 +210,58 @@ private class CodeView(
         }
     }
 
+    private val statusLabel = JBLabel().apply {
+        font = JBFont.small()
+        isVisible = false
+    }
+    private val applyLink = ActionLink(ModularPluginFrontendBundle.message("chat.edit.apply")).apply {
+        toolTipText = ModularPluginFrontendBundle.message("chat.edit.apply.tooltip")
+    }
+    private var header: JPanel? = null
+
     init {
         layout = BoxLayout(this, BoxLayout.Y_AXIS)
         isOpaque = false
         alignmentX = LEFT_ALIGNMENT
         border = JBUI.Borders.emptyBottom(6)
+        val path = block.path
+        if (allowApply && path != null && project != null) {
+            add(createHeader(path, project))
+        }
         add(field)
+        setApplyEnabled(applyEnabled)
+    }
+
+    private fun createHeader(path: String, project: Project): JPanel {
+        applyLink.addActionListener {
+            CodeBlockApplier(project).apply(path, currentText) { text, isError ->
+                statusLabel.text = text
+                statusLabel.foreground = if (isError) NamedColorUtil.getErrorForeground() else ChatAppColors.Text.timestamp
+                statusLabel.isVisible = true
+                revalidate()
+            }
+        }
+        val pathLabel = JBLabel(path).apply {
+            font = JBFont.small()
+            foreground = ChatAppColors.Text.timestamp
+            toolTipText = path
+        }
+        return JPanel().apply {
+            layout = BoxLayout(this, BoxLayout.X_AXIS)
+            isOpaque = false
+            alignmentX = LEFT_ALIGNMENT
+            border = JBUI.Borders.emptyBottom(2)
+            add(pathLabel)
+            add(Box.createHorizontalStrut(JBUI.scale(8)))
+            add(statusLabel)
+            add(Box.createHorizontalGlue())
+            add(applyLink)
+            header = this
+        }
+    }
+
+    fun setApplyEnabled(enabled: Boolean) {
+        applyLink.isEnabled = enabled
     }
 
     override fun update(block: MarkdownBlocks.Block) {
@@ -212,7 +277,7 @@ private class CodeView(
     }
 
     override fun getPreferredSize(): Dimension {
-        val height = field.preferredSize.height + insets.top + insets.bottom
+        val height = (header?.preferredSize?.height ?: 0) + field.preferredSize.height + insets.top + insets.bottom
         return Dimension(wrapPx, height)
     }
 

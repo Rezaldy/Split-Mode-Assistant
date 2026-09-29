@@ -2,6 +2,7 @@
 
 package com.rizkybusiness.ai.assistant
 
+import com.rizkybusiness.ai.assistant.edit.BackendCodeEditApi
 import com.rizkybusiness.ai.assistant.index.BackendIndexApi
 import com.rizkybusiness.ai.assistant.models.BackendModelsApi
 import com.rizkybusiness.ai.assistant.search.BackendFileSearchApi
@@ -25,6 +26,9 @@ internal class BackendRpcApiProvider : RemoteApiProvider {
         }
         remoteApi(remoteApiDescriptor<SkillsApi>()) {
             BackendSkillsApi()
+        }
+        remoteApi(remoteApiDescriptor<CodeEditApi>()) {
+            BackendCodeEditApi()
         }
     }
 }

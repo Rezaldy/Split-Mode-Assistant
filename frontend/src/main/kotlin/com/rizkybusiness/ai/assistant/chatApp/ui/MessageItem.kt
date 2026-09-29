@@ -45,7 +45,8 @@ class MessageBubble(
                         add(it)
                     }
                 }
-                contentArea = MarkdownContent(project).also {
+                contentArea = MarkdownContent(project, allowApply = !message.isMyMessage).also {
+                    it.setApplyEnabled(!message.isStreaming)
                     it.setWrapWidth(JBUI.scale(ChatUIConstants.MessageBubble.CONTENT_WRAP_WIDTH))
                     it.setMarkdown(message.content)
                     add(it)
@@ -65,6 +66,7 @@ class MessageBubble(
         thinkingIndicator?.setPhase(updated.phase)
         thinkingSection?.setThinking(updated.thinking, answerStarted = updated.content.isNotBlank())
         timeStampRow?.refresh(updated)
+        contentArea?.setApplyEnabled(!updated.isStreaming)
         if (updated.content == currentContent) return
         currentContent = updated.content
         contentArea?.let {
