@@ -23,8 +23,9 @@ IDE; your job is to catch that before it ships.
   other language/framework plugin id — whether in `<depends>` or in content
   module `<dependencies>`.
 - Split-mode content modules are expected and fine: backend descriptors
-  depend on `intellij.platform.backend` / `kernel.backend` / `rpc.backend`,
-  frontend on `intellij.platform.frontend`.
+  depend on `intellij.platform.backend` / `kernel.backend` / `vcs.impl`,
+  frontend on `intellij.platform.frontend`. `intellij.platform.rpc.backend`
+  is a Gradle `bundledModule` only — flag it if it appears in a descriptor.
 
 **Source** — grep all Kotlin sources for language-specific APIs:
 
