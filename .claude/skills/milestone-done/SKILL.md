@@ -1,6 +1,6 @@
 ---
 name: milestone-done
-description: Definition-of-done gate for milestones M0–M6. Run whenever a milestone's implementation feels complete, before committing "milestone finished", before starting the next milestone, or when the user asks "is Mx done?" / "can we move on?". Executes the full verification loop (build, both run modes, verifyPlugin from M5 on, buildPlugin) plus the milestone's specific acceptance checks, and refuses to green-light with known regressions.
+description: Definition-of-done gate for milestones. Run whenever a milestone's implementation feels complete, before committing "milestone finished", before starting the next milestone, or when the user asks "is Mx done?" / "can we move on?". Executes the full verification loop (build, both run modes, verifyPlugin from M5 on, buildPlugin) plus the milestone's specific acceptance checks, and refuses to green-light with known regressions.
 ---
 
 # Milestone definition-of-done
@@ -32,6 +32,8 @@ delegated to `plugin-engineer` with the list of changed user-visible
 behavior, verified by the main session.
 
 ## Per-milestone acceptance checks
+
+M7+ acceptance checks live in DEVELOPMENT_PLAN.md under each milestone; the universal loop above applies to all.
 
 **M0 — template runs.** Plugin id/name renamed everywhere
 (`gradle.properties`, `plugin.xml`). Demo chat echoes in BOTH run modes.
