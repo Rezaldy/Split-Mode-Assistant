@@ -7,7 +7,7 @@ description: Launch and verify the plugin in a sandbox IDE — monolithic runIde
 
 The commands are trivial; the traps are not. Check the traps FIRST.
 
-## Trap 0: the jar lock (hit twice already — check before every launch)
+## Trap 0: the jar lock (check before every launch)
 
 `prepareSandbox FAILED ... user-mapped section open` means a **still-running
 sandbox IDE** holds the previous plugin jar. Windows will not let Gradle

@@ -103,7 +103,7 @@ Maintained by the code-recon skill.
   removed for vanished ids; content changes to an EXISTING id must go
   through `MessageBubble.updateFrom`. Symptom when broken: streamed reply
   freezes at its first few tokens. `frontend/.../chatApp/ui/ChatList.kt` `addNewMessages` (verified 2026-08-02)
-- **Platform toolchain requires JDK 21** — Gradle 9.4 daemon runs on JDK 25
+- **Platform toolchain requires JDK 21** — Gradle 9.7 daemon runs on JDK 25
   but compilation wants languageVersion=21; Temurin 21.0.12 auto-detected. (verified 2026-08-01)
 - **`intellij.platform.rpc.backend`** is a Gradle `bundledModule` in
   `backend/build.gradle.kts` only — must NOT appear in the backend XML descriptor. (verified 2026-08-01)
@@ -113,7 +113,7 @@ Maintained by the code-recon skill.
   IDEA/PyCharm/WebStorm so allowed, but any further module must be
   checked as bundled in all three first. `pluginVerification` in root
   `build.gradle.kts` targets IntelliJ IDEA Ultimate, PyCharm Professional,
-  WebStorm at `intellijPlatformVersion` (M5). Tests: 7 backend classes
+  WebStorm at `intellijPlatformVersion` (M5). Tests: 8 backend classes
   (Chunker, IndexStore, RetrievalSelector, VectorMath,
-  SkillManifestParser, SkillStore, SelectionSnapshot), 1 frontend
+  SkillManifestParser, SkillStore, SelectionSnapshot, SearchReplaceApplier), 1 frontend
   (MarkdownBlocks). (verified 2026-09-10)

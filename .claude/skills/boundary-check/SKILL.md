@@ -52,10 +52,10 @@ build-script dependencies too.
 ## Fixing a violation
 
 The fix is always the same shape: move the logic to `backend/`, expose it as
-a method on one of the three RPC interfaces (`ChatApi`, `ModelsApi`,
-`FileSearchApi`) or extend one — don't invent a fourth interface without
-discussion — and pass plain data across. When in doubt, put logic in the
-backend; the frontend should be as thin as possible.
+a method on the RPC interface that owns the concern (the set is listed in
+CLAUDE.md "RPC surface") — a new interface needs discussion first — and pass
+plain data across. When in doubt, put logic in the backend; the frontend
+should be as thin as possible.
 
 ## Remember
 

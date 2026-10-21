@@ -95,7 +95,7 @@ or remove the stale memory, and record the verifying source paths.
 
 ## Repository-specific guidance
 
-Kotlin, Gradle 9.4 (JDK 25 daemon / JDK 21 toolchain), IntelliJ Platform
+Kotlin, Gradle 9.7 (JDK 25 daemon / JDK 21 toolchain), IntelliJ Platform
 2026.1, modular layout: `shared/` (`@Rpc` interfaces + `@Serializable`
 DTOs, no logic), `frontend/` (Swing chat UI, loads in JetBrains Client),
 `backend/` (OllamaClient, context collection, RPC impls — all project

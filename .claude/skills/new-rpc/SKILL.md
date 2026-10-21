@@ -9,11 +9,10 @@ Any time the frontend needs something from the host — project data, settings,
 model traffic — it crosses via an `@Rpc` interface in `shared/`. This skill
 walks the full path so nothing is half-wired.
 
-## Step 0: Don't create a fourth interface
+## Step 0: Don't create a new interface
 
-The RPC surface is deliberately small: `ChatApi`, `ModelsApi`,
-`FileSearchApi`. New capability almost always belongs as a method on one of
-these. A genuinely new interface is an architecture change — stop and discuss
+The RPC surface is deliberately small (the set is in CLAUDE.md "RPC surface").
+New capability almost always belongs as a method on one of those. A genuinely new interface is an architecture change — stop and discuss
 with the user first.
 
 ## Step 1: shared/ — contract only
@@ -29,7 +28,7 @@ with the user first.
    in the backend.
 
 Before writing anything, read how an existing interface (start with
-`ChatApi`) is declared and registered — the template already implements the
+`ChatRepositoryRpcApi`) is declared and registered — the template already implements the
 whole pattern; extend it, don't reinvent it.
 
 ## Hand-off point
@@ -46,7 +45,7 @@ delegated diff with `/boundary-check` + `/code-quality` before the PR.
 ## Step 2: backend/ — implementation
 
 1. Implement the method in the existing backend implementation of that
-   interface (find it by the existing registration of `ChatApi`'s impl —
+   interface (find it by the existing registration of `ChatRepositoryRpcApi`'s impl —
    follow the same registration mechanism exactly).
 2. Project access rules:
    - All PSI/VFS/index reads inside `runReadAction`.
@@ -63,7 +62,7 @@ delegated diff with `/boundary-check` + `/code-quality` before the PR.
 
 ## Step 3: frontend/ — consumption
 
-1. Obtain the remote proxy the same way the existing UI gets `ChatApi`.
+1. Obtain the remote proxy the same way the existing UI gets `ChatRepositoryRpcApi`.
 2. Debounce keystroke-driven calls (the `@` popup pattern) before they hit
    RPC.
 3. The frontend renders what it receives. If you feel the urge to

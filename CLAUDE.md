@@ -35,11 +35,12 @@ Module loadability is declared via content-module dependencies (verified against
 
 ### RPC surface (shared/)
 
-Keep the surface small. Three interfaces:
+Keep the surface small: one interface per concern, new capability goes on an existing one. Current set in `shared/`:
 
-- `ChatApi` — `sendMessage(text, attachments)`, plus a `Flow` of message/stream updates (the template already implements this pattern as `ChatRepositoryRpcApi` in shared/; extend it, don't replace it).
-- `ModelsApi` — `listModels(): List<ModelInfo>`, `getSelectedModel()`, `selectModel(name)`.
-- `FileSearchApi` — `search(query: String, limit: Int): List<FileRef>` where `FileRef = (path, presentablePath, fileName)`. Powers the `@` popup.
+- `ChatRepositoryRpcApi` — per-tab chat: `getMessagesFlow`, `sendMessage(…, attachments, skills)`, `abortGeneration`, `closeChat`, `getContextFilesFlow` (extends the template's pattern; don't replace it).
+- `ModelsApi` — `getStateFlow`, `selectModel`, `refresh`.
+- `FileSearchApi` — `search(projectId, query, limit): List<FileRefDto>`; powers the `@` popup.
+- `IndexApi` (index status/rebuild), `SkillsApi` (skill state, upload, delete), `CodeEditApi` (edit preview/apply).
 
 DTOs are `@Serializable` data classes. Never pass PSI, VFS, or any platform object across RPC — paths and plain data only, and no custom serializers (encode times as epoch millis, not `LocalDateTime`).
 
@@ -140,6 +141,7 @@ Delegation saves cost, not scrutiny: delegated changes never go straight into a 
 6. **M5 — multi-IDE hardening**: `verifyPlugin` clean for IDEA/PyCharm/WebStorm; manual smoke test in at least PyCharm.
 7. **M6 — polish**: cancel button for in-flight generations, chat history within session, context-size indicator.
 8. **M7 — opt-in project indexing (local RAG)**: settings-gated; backend chunks + embeds project files via the endpoint's `/api/embed` (embedding model auto-picked from `/api/tags`, `OLLAMA_EMBED_MODEL` override), vectors stored under the IDE system path, question-time top-k retrieval merged into the context budget (mentions > open files > retrieved). Index errors must never block chat. Full design in DEVELOPMENT_PLAN.md §M7.
+9. **M8 / M9 — Agent Skills; skill-driven audits**: scope and status in DEVELOPMENT_PLAN.md §M8–§M9.
 
 Do not start milestone N+1 while N has known regressions.
 
