@@ -236,7 +236,7 @@ class ProjectContextCollector(private val project: Project) : Disposable {
             val query = VectorMath.normalizeInPlace(client.embed(embeddingModel, listOf(question)).first())
             // Open + mentioned files are already in the context in full — never retrieve them.
             val excluded = mentionPaths.toSet() + readAction { openTextFiles().map { it.path } }
-            RetrievalSelector.select(query, entries, excluded).mapNotNull { renderHit(it) }
+            RetrievalSelector.select(query, entries, excluded, question = question).mapNotNull { renderHit(it) }
         } catch (e: Exception) {
             if (e is CancellationException) throw e
             thisLogger().warn("Retrieval failed; continuing without indexed context", e)
