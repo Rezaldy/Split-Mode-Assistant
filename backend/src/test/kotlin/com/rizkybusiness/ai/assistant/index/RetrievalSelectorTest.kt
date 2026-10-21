@@ -15,6 +15,13 @@ class RetrievalSelectorTest {
             vectors = chunks.map { it.third },
         )
 
+    private fun entryWithTokens(start: Int, end: Int, vector: FloatArray, tokens: List<String>) =
+        ProjectIndexService.FileIndexEntry(
+            contentHash = "h",
+            chunks = listOf(ChunkMeta(start, end, tokens)),
+            vectors = listOf(vector),
+        )
+
     @Test
     fun `score floor filters weak matches and topK orders by similarity`() {
         val query = unit(1f, 0f)
@@ -65,5 +72,46 @@ class RetrievalSelectorTest {
         }
         val hits = RetrievalSelector.select(query, entries, excludePaths = emptySet(), topK = 12)
         assertEquals(12, hits.size)
+    }
+
+    @Test
+    fun `exact class-name match beats a higher-cosine unrelated chunk`() {
+        val query = unit(1f, 0f)
+        val entries = mapOf(
+            "src/IndexStore.kt" to entryWithTokens(1, 10, unit(1f, 1f), listOf("class", "indexstore", "save")),
+            "src/Other.kt" to entryWithTokens(1, 10, unit(1f, 0.1f), listOf("class", "other")),
+        )
+        val hits = RetrievalSelector.select(
+            query, entries, excludePaths = emptySet(), question = "What does IndexStore.save do?",
+        )
+        assertEquals("src/IndexStore.kt", hits.first().path)
+    }
+
+    @Test
+    fun `file-name match in the question surfaces that file even below the cosine floor`() {
+        val query = unit(1f, 0f)
+        val entries = mapOf(
+            "src/Chunker.kt" to entryWithTokens(1, 10, unit(0.05f, 1f), emptyList()),
+            "src/Unrelated.kt" to entryWithTokens(1, 10, unit(1f, 0f), emptyList()),
+        )
+        val hits = RetrievalSelector.select(
+            query, entries, excludePaths = emptySet(), question = "Explain Chunker.kt",
+        )
+        assertEquals(setOf("src/Chunker.kt", "src/Unrelated.kt"), hits.map { it.path }.toSet())
+    }
+
+    @Test
+    fun `question without identifier terms leaves ordering and scores identical`() {
+        val query = unit(1f, 0f)
+        val entries = mapOf(
+            "strong.kt" to entry(Triple(1, 10, unit(1f, 0.05f))),
+            "medium.kt" to entry(Triple(1, 10, unit(1f, 1f))),
+            "weak.kt" to entry(Triple(1, 10, unit(0.05f, 1f))),
+        )
+        val plain = RetrievalSelector.select(query, entries, excludePaths = emptySet(), topK = 5, question = "")
+        val english = RetrievalSelector.select(
+            query, entries, excludePaths = emptySet(), topK = 5, question = "what does this function return",
+        )
+        assertEquals(plain, english)
     }
 }

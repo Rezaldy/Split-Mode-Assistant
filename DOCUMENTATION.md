@@ -191,7 +191,7 @@ Embeddings can target a different base URL than chat, via `OLLAMA_EMBED_BASE_URL
 
 ### Retrieval at question time
 
-- The top 12 chunks by cosine similarity are retrieved, subject to a similarity floor of 0.30.
+- The top 12 chunks are retrieved, subject to a similarity floor of 0.30. Identifier-like terms in the question (class, function, and file names such as `IndexStore.save` or `Chunker.kt`) are matched against each chunk's file name and its stored identifier tokens. The final score is 0.7 × cosine + 0.3 × lexical, and a chunk that matches an identifier stays eligible even below the 0.30 cosine floor. A question without such terms ranks by cosine alone.
 - Adjacent chunks from the same file are merged into one snippet.
 - Each resulting snippet is capped at 4,000 characters.
 - Files that are already open or `@`-mentioned are never retrieved, since they are already included in full elsewhere in the context.

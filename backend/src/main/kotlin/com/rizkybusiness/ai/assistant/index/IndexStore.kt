@@ -11,8 +11,9 @@ import java.nio.file.Path
 import java.nio.file.StandardCopyOption
 import java.nio.file.StandardOpenOption
 
+/** [tokens]: lowercased identifiers of the chunk for lexical matching; empty in indexes built before it existed. */
 @Serializable
-data class ChunkMeta(val startLine: Int, val endLine: Int)
+data class ChunkMeta(val startLine: Int, val endLine: Int, val tokens: List<String> = emptyList())
 
 @Serializable
 data class FileEntry(
