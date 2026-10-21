@@ -51,6 +51,7 @@ data class OllamaDoneStats(
 internal data class OllamaChatOptions(
     @SerialName("num_ctx") val numCtx: Int? = null,
     @SerialName("num_predict") val numPredict: Int? = null,
+    @SerialName("temperature") val temperature: Float? = null,
 )
 
 @Serializable
@@ -110,6 +111,9 @@ class OllamaClient(val baseUrl: String, val useProxy: Boolean = false) {
 
         /** Max silence between chunks mid-generation before the stream counts as stalled. */
         const val STREAM_IDLE_TIMEOUT_MS = 120_000L
+
+        /** Ollama's default is 0.8, which is too creative for code questions. */
+        private const val CHAT_TEMPERATURE = 0.2f
     }
 
     private val json = Json { ignoreUnknownKeys = true }
@@ -188,7 +192,7 @@ class OllamaClient(val baseUrl: String, val useProxy: Boolean = false) {
         val tag = if (logTag.isEmpty()) "" else "$logTag "
         val request0 = OllamaChatRequest(
             model, messages,
-            options = OllamaChatOptions(numCtx = contextTokens, numPredict = -1),
+            options = OllamaChatOptions(numCtx = contextTokens, numPredict = -1, temperature = CHAT_TEMPERATURE),
             think = if (requestThinking) true else null,
         )
         val body = json.encodeToString(OllamaChatRequest.serializer(), request0)

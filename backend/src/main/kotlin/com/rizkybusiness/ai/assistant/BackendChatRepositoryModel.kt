@@ -49,6 +49,11 @@ class BackendChatRepositoryModel(
         /** Separate from the 24k-char project-context budget; ~3k tokens for all activated skills. */
         private const val SKILLS_BUDGET_CHARS = 12_000
 
+        /** Model-facing: sent instead of the context block when nothing was collected, to discourage guessing. */
+        private const val NO_CONTEXT_NOTE =
+            "No project context is available for this question (no open files, @-mentions, selection, or index hits). " +
+                "Do not assume anything about the project's files; ask the user to open or @-mention the relevant file if needed."
+
         /** Model-facing, fixed: the frontend's Apply button relies on this exact block format. */
         private val FILE_CHANGE_INSTRUCTIONS = """
             |When you propose a change to a project file, put it in a fenced code block whose info string is the language followed by the file's path relative to the project root, e.g. ```kotlin src/main/kotlin/Foo.kt. Use one block per file. To edit an existing file, the block holds one or more hunks:
@@ -283,6 +288,8 @@ class BackendChatRepositoryModel(
                 if (context.isNotBlank()) {
                     append("\n\nProject context (each block is labeled with its source — mentioned, selection, open, or retrieved):\n")
                     append(context)
+                } else {
+                    append("\n\n").append(NO_CONTEXT_NOTE)
                 }
             }
             return RequestBuild(listOf(OllamaChatMessage("system", systemContent)) + history, context.length)

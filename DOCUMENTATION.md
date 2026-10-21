@@ -113,7 +113,7 @@ Precedence for which model is actually used, highest first:
 
 ## Context: what the model sees
 
-Each request carries a system prompt (customizable — see Settings) plus a project-context block assembled under a hard budget of 24,000 characters. The block is filled in this priority order:
+Each request carries a system prompt (customizable — see Settings) plus a project-context block assembled under a hard budget of 24,000 characters. The default chat prompt asks for grounded answers: project questions are answered only from the supplied context, code is cited by file path (and line range where shown), and the model says so plainly when the context lacks what is needed instead of guessing. When nothing was collected (no open files, mentions, selection, or index hits), an explicit "no project context" note is sent in its place. Chat requests use temperature 0.2 (Ollama's default of 0.8 is too creative for code questions); this is not configurable. The block is filled in this priority order:
 
 1. **`@`-mentioned files** — full content, first claim on the budget. Binary files are rejected with a note instead of their content.
 2. **Your current editor selection** — up to 8,000 characters, labeled with file path and line numbers.

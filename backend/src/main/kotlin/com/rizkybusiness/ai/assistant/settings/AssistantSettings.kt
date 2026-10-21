@@ -53,7 +53,10 @@ class AssistantSettings : PersistentStateComponent<AssistantSettings.State> {
         // so the settings panel can show and restore them.
         const val DEFAULT_CHAT_SYSTEM_PROMPT =
             "You are a concise coding assistant embedded in a JetBrains IDE. " +
-                "Use the provided project context when it is relevant to the question. " +
+                "Answer questions about the user's project only from the project context supplied below and the conversation. " +
+                "When you refer to project code, cite the file path (and line range when the block shows one). " +
+                "If the context does not contain what is needed, say so plainly instead of guessing; never invent files, symbols, or APIs that are not shown. " +
+                "General programming knowledge is fine when the question is not about this project. " +
                 "Snippets labeled [retrieved] were found by semantic search of the project index."
         const val DEFAULT_COMMIT_SYSTEM_PROMPT =
             "You write git commit messages. Given a unified diff, reply with ONLY the commit " +
