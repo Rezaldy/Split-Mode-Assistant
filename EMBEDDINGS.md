@@ -481,7 +481,7 @@ The finished (or partially finished — see below) index is written by [IndexSto
 Everything except the numbers is stored as JSON via `kotlinx.serialization`:
 
 ```kotlin
-@Serializable data class ChunkMeta(val startLine: Int, val endLine: Int)
+@Serializable data class ChunkMeta(val startLine: Int, val endLine: Int, val tokens: List<String> = emptyList())
 
 @Serializable data class FileEntry(
     val path: String,
@@ -687,7 +687,7 @@ private suspend fun retrieve(question: String, mentionPaths: List<String>): List
 
         // Open + mentioned files are already in the context in full — never retrieve them.
         val excluded = mentionPaths.toSet() + runReadAction { openTextFiles().map { it.path } }
-        RetrievalSelector.select(query, entries, excluded).mapNotNull { renderHit(it) }
+        RetrievalSelector.select(query, entries, excluded, question = question).mapNotNull { renderHit(it) }
     } catch (e: Exception) {
         if (e is CancellationException) throw e
         thisLogger().warn("Retrieval failed; continuing without indexed context", e)
@@ -711,16 +711,19 @@ const val DEFAULT_SCORE_FLOOR = 0.30f
 data class Hit(val path: String, val startLine: Int, val endLine: Int, val score: Float)
 
 fun select(query: FloatArray, entries: Map<String, FileIndexEntry>, excludePaths: Set<String>,
-           topK: Int = DEFAULT_TOP_K, scoreFloor: Float = DEFAULT_SCORE_FLOOR): List<Hit> {
+           topK: Int = DEFAULT_TOP_K, scoreFloor: Float = DEFAULT_SCORE_FLOOR,
+           question: String = ""): List<Hit> {
+    val terms = questionTokens(question)
     val scored = mutableListOf<Hit>()
     for ((path, entry) in entries) {
         if (path in excludePaths) continue
         entry.vectors.forEachIndexed { index, vector ->
-            val score = VectorMath.dot(query, vector)
-            if (score >= scoreFloor) {
-                val meta = entry.chunks[index]
-                scored += Hit(path, meta.startLine, meta.endLine, score)
-            }
+            val cosine = VectorMath.dot(query, vector)
+            val meta = entry.chunks[index]
+            val lexical = lexicalScore(terms, path, meta.tokens)
+            if (cosine < scoreFloor && lexical == 0f) return@forEachIndexed
+            val score = if (terms.isEmpty()) cosine else COSINE_WEIGHT * cosine + LEXICAL_WEIGHT * lexical
+            scored += Hit(path, meta.startLine, meta.endLine, score)
         }
     }
     return mergeAdjacent(scored.sortedByDescending { it.score }.take(topK))
@@ -732,6 +735,7 @@ Three knobs:
 - **Exclusions.** Files that are open in the editor or `@`-mentioned are skipped entirely. They are already in the context in full; retrieving a fragment of them would waste budget on duplicate text.
 - **Score floor `0.30`.** A question unrelated to the codebase ("write me a haiku") still produces *some* best-matching chunk. The floor drops weak matches so an off-topic question retrieves nothing rather than random noise.
 - **Top-k `12`.** At most 12 chunks survive, sorted by score.
+- **Lexical boost.** Embeddings blur exact names, so identifier-like terms in the question (`IndexStore.save`, `Chunker.kt`, `snake_case`) are matched against each chunk's file name (0.6 of the lexical score) and its stored identifier tokens (the other 0.4, by share of terms found). The final score is `0.7 × cosine + 0.3 × lexical`, and a chunk with a lexical match stays eligible even below the `0.30` floor. A question with no such terms ranks by cosine alone, exactly as before. `ChunkMeta` stores up to 128 lowercased identifiers per chunk for this; indexes built before the field existed match on file name only until they are rebuilt.
 
 "Brute force over 25,000 vectors" sounds slow but is not: 25,000 chunks × 768 dims is about 19 million multiply-adds, which takes a few milliseconds. That is the reason the index has a chunk cap — it is what makes a vector database unnecessary.
 

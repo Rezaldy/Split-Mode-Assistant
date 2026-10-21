@@ -267,7 +267,7 @@ class ProjectIndexService(private val project: Project, private val scope: Corou
                 incomplete.remove(pending.path)
                 built[pending.path] = FileIndexEntry(
                     pending.hash,
-                    pending.chunks.map { ChunkMeta(it.startLine, it.endLine) },
+                    pending.chunks.map { ChunkMeta(it.startLine, it.endLine, RetrievalSelector.chunkTokens(it.text)) },
                     pending.vectors.toList(),
                 )
                 chunksSoFar += pending.chunks.size
@@ -466,7 +466,7 @@ class ProjectIndexService(private val project: Project, private val scope: Corou
                     vectors += VectorMath.normalizeInPlace(it)
                 }
             }
-            updated[path] = FileIndexEntry(hash, chunks.map { ChunkMeta(it.startLine, it.endLine) }, vectors)
+            updated[path] = FileIndexEntry(hash, chunks.map { ChunkMeta(it.startLine, it.endLine, RetrievalSelector.chunkTokens(it.text)) }, vectors)
         }
 
         entries = updated
